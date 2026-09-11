@@ -2,12 +2,21 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Internet برای تبلیغات Tapsell و Adivery -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- اعلان‌ها در Android 13 به بعد -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- برای زمان‌بندی دقیق اعلان‌ها در صورت نیاز -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:allowBackup="true"
         android:label="یادآور"
         android:supportsRtl="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.Yadavar">
 
         <activity
@@ -15,8 +24,12 @@
             android:exported="true">
 
             <intent-filter>
+
                 <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+
+                <category
+                    android:name="android.intent.category.LAUNCHER" />
+
             </intent-filter>
 
         </activity>
