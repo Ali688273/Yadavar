@@ -5,12 +5,16 @@ plugins {
 
 android {
     namespace = "com.yadavar.app"
-    compileSdk = 36
+
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.yadavar.app"
+
         minSdk = 24
-        targetSdk = 36
+
+        // Android 14
+        targetSdk = 34
 
         versionCode = 1
         versionName = "1.0"
@@ -35,7 +39,7 @@ dependencies {
 
     implementation(composeBom)
 
-    // Android
+    // Activity
     implementation(
         "androidx.activity:activity-compose:1.13.0"
     )
@@ -59,7 +63,7 @@ dependencies {
         "androidx.compose.material:material-icons-extended"
     )
 
-    // Preview / Debug
+    // Debug tools
     debugImplementation(
         "androidx.compose.ui:ui-tooling"
     )
