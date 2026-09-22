@@ -54,6 +54,7 @@ fun YadavarApp(context: Context) {
     var showDeleteCompleted by remember { mutableStateOf(false) }
     var taskToDelete by remember { mutableStateOf<TodoItem?>(null) }
     var birthdayToDelete by remember { mutableStateOf<StoredBirthday?>(null) }
+    var taskQuery by remember { mutableStateOf("") }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
     val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
@@ -93,6 +94,8 @@ fun YadavarApp(context: Context) {
         when (tab) {
             0 -> TodoScreen(
                 tasks = tasks,
+                query = taskQuery,
+                onQueryChange = { taskQuery = it },
                 toggle = { id ->
                     val i = tasks.indexOfFirst { it.id == id }
                     if (i >= 0) {
@@ -247,6 +250,8 @@ fun YadavarApp(context: Context) {
 @Composable
 fun TodoScreen(
     tasks: List<TodoItem>,
+    query: String,
+    onQueryChange: (String) -> Unit,
     edit: (TodoItem) -> Unit,
     toggle: (Int) -> Unit,
     delete: (Int) -> Unit,
@@ -254,6 +259,11 @@ fun TodoScreen(
     modifier: Modifier = Modifier
 ) {
     val done = tasks.count { it.done }
+    val filtered = if (query.isBlank()) tasks else tasks.filter {
+        it.title.contains(query.trim(), ignoreCase = true)
+    }
+    val progress = if (tasks.isEmpty()) 0f else done.toFloat() / tasks.size.toFloat()
+
     Column(modifier.fillMaxSize().padding(16.dp)) {
         Text("کارهای امروز", fontSize = 26.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
@@ -261,6 +271,29 @@ fun TodoScreen(
             if (tasks.isEmpty()) "هنوز کاری ثبت نشده است."
             else done.toString() + " از " + tasks.size + " کار انجام شده",
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (tasks.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Default.Clear, contentDescription = "پاک کردن")
+                    }
+                }
+            },
+            label = { Text("جستجوی کارها") }
         )
         if (done > 0) {
             TextButton(onClick = onRequestClear) {
@@ -280,8 +313,18 @@ fun TodoScreen(
                 Text("برای شروع روی + بزنید.")
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(tasks, key = { it.id }) { t ->
+            if (filtered.isEmpty()) {
+                Column(
+                    Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.SearchOff, null)
+                    Spacer(Modifier.height(8.dp))
+                    Text("کاری با این عبارت پیدا نشد.")
+                }
+            } else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(filtered, key = { it.id }) { t ->
                     Card(Modifier.fillMaxWidth()) {
                         Row(
                             Modifier.fillMaxWidth().padding(10.dp),
@@ -506,6 +549,15 @@ fun SettingsScreen(total: Int, done: Int, birthdays: Int, modifier: Modifier = M
                 Text("کل کارها: " + total)
                 Text("انجام‌شده: " + done)
                 Text("باقی‌مانده: " + (total - done))
+                Text("درصد انجام: " + if (total == 0) 0 else (done * 100 / total) + "%")
+                Spacer(Modifier.height(8.dp))
+                if (total > 0) {
+                    LinearProgressIndicator(
+                        progress = { done.toFloat() / total.toFloat() },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
                 Text("تولدهای ثبت‌شده: " + birthdays)
             }
         }
@@ -514,7 +566,7 @@ fun SettingsScreen(total: Int, done: Int, birthdays: Int, modifier: Modifier = M
         Spacer(Modifier.height(12.dp))
         Text("اعلان تولد یک روز قبل و روز تولد فعال است.")
         Spacer(Modifier.height(20.dp))
-        Text("نسخه 1.1.0")
+        Text("نسخه 1.2.0")
     }
 }
 
