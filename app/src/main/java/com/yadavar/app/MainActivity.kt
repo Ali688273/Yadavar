@@ -52,6 +52,8 @@ fun YadavarApp(context: Context) {
     var editingBirthday by remember { mutableStateOf<StoredBirthday?>(null) }
     var editingTask by remember { mutableStateOf<TodoItem?>(null) }
     var showDeleteCompleted by remember { mutableStateOf(false) }
+    var taskToDelete by remember { mutableStateOf<TodoItem?>(null) }
+    var birthdayToDelete by remember { mutableStateOf<StoredBirthday?>(null) }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
     val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
@@ -99,7 +101,9 @@ fun YadavarApp(context: Context) {
                     }
                 },
                 edit = { editingTask = it },
-                delete = { id -> tasks.removeAll { it.id == id }; saveT() },
+                delete = { id ->
+                    taskToDelete = tasks.firstOrNull { it.id == id }
+                },
                 onRequestClear = { showDeleteCompleted = true },
                 modifier = Modifier.padding(pad)
             )
@@ -107,14 +111,52 @@ fun YadavarApp(context: Context) {
                 list = birthdays,
                 edit = { editingBirthday = it },
                 delete = { b ->
-                    BirthdayNotificationScheduler.cancelBirthday(context, b.id, b.month, b.day)
-                    birthdays.removeAll { it.id == b.id }
-                    saveB()
+                    birthdayToDelete = b
                 },
                 modifier = Modifier.padding(pad)
             )
             else -> SettingsScreen(tasks.size, tasks.count { it.done }, birthdays.size, Modifier.padding(pad))
         }
+    }
+
+    if (taskToDelete != null) {
+        val task = taskToDelete!!
+        AlertDialog(
+            onDismissRequest = { taskToDelete = null },
+            title = { Text("حذف کار") },
+            text = { Text("کار «" + task.title + "» حذف شود؟") },
+            confirmButton = {
+                Button(onClick = {
+                    tasks.removeAll { it.id == task.id }
+                    saveT()
+                    taskToDelete = null
+                }) { Text("حذف") }
+            },
+            dismissButton = { TextButton(onClick = { taskToDelete = null }) { Text("انصراف") } }
+        )
+    }
+
+    if (birthdayToDelete != null) {
+        val birthday = birthdayToDelete!!
+        AlertDialog(
+            onDismissRequest = { birthdayToDelete = null },
+            title = { Text("حذف تولد") },
+            text = { Text("تولد «" + birthday.name + "» حذف شود؟") },
+            confirmButton = {
+                Button(onClick = {
+                    BirthdayNotificationScheduler.cancelBirthday(
+                        context,
+                        birthday.id,
+                        birthday.month,
+                        birthday.day
+                    )
+                    birthdays.removeAll { it.id == birthday.id }
+                    saveB()
+                    birthdayToDelete = null
+                }) { Text("حذف") }
+            },
+            dismissButton = { TextButton(onClick = { birthdayToDelete = null }) { Text("انصراف") } }
+        )
     }
 
     if (showDeleteCompleted) {
