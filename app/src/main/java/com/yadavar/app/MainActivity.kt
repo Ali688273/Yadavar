@@ -47,6 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import com.yadavar.app.core.BirthdayReminderEngine
+import java.time.LocalDate
 
 data class TodoItem(
     val id: Int,
@@ -330,41 +332,25 @@ fun TodoCard(
 fun BirthdayScreen(
     modifier: Modifier = Modifier
 ) {
-
+    val reminder = BirthdayReminderEngine.reminder("نمونه تولد", 1, 1, LocalDate.now())
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(20.dp),
-
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-
-        verticalArrangement =
-            Arrangement.Center
+        modifier = modifier.fillMaxSize().padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
-        Icon(
-            Icons.Default.Cake,
-            contentDescription = null
-        )
-
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-
-        Text(
-            text = "تولد عزیزانت",
-            fontSize = 25.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
-
-        Text(
-            text = "به‌زودی امکان ثبت تولدها و یادآوری خودکار اضافه می‌شود."
-        )
+        Icon(Icons.Default.Cake, contentDescription = null, modifier = Modifier.size(56.dp))
+        Spacer(Modifier.height(16.dp))
+        Text("تولد عزیزانت", fontSize = 25.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) {
+            Column(Modifier.padding(18.dp)) {
+                Text("یادآوری بعدی", fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                Text(if (reminder.isToday) "امروز تولد "+reminder.name+" است 🎂" else reminder.name+": "+reminder.daysUntil+" روز تا تولد")
+                Spacer(Modifier.height(8.dp))
+                Text("محاسبه زمان باقی‌مانده توسط موتور یادآوری فعال است.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
 
