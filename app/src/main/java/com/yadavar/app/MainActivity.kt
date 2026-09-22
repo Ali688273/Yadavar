@@ -43,6 +43,7 @@ fun YadavarApp(context:Context){
     var tab by remember{mutableIntStateOf(0)}
     var addTask by remember{mutableStateOf(false)}
     var addBirthday by remember{mutableStateOf(false)}
+    var showDeleteCompleted by remember{mutableStateOf(false)}
     val tasks=remember{mutableStateListOf<TodoItem>().apply{addAll(loadTasks(context))}}
     val birthdays=remember{mutableStateListOf<StoredBirthday>().apply{addAll(loadBirthdays(context))}}
 
@@ -69,6 +70,7 @@ fun YadavarApp(context:Context){
             else->SettingsScreen(tasks.size,tasks.count{it.done},birthdays.size,Modifier.padding(pad))
         }
     }
+    if(showDeleteCompleted) AlertDialog(onDismissRequest={showDeleteCompleted=false},title={Text("حذف کارهای انجام‌شده")},text={Text("همه کارهای انجام‌شده حذف شوند؟")},confirmButton={Button(onClick={clear();showDeleteCompleted=false}){Text("حذف")}},dismissButton={TextButton(onClick={showDeleteCompleted=false}){Text("انصراف")}})
     if(addTask)AddTaskDialog({addTask=false}){title->if(title.trim().isNotEmpty()){tasks.add(TodoItem((tasks.maxOfOrNull{it.id}?:0)+1,title.trim()));saveT()};addTask=false}
     if(addBirthday)AddBirthdayDialog({addBirthday=false}){name,m,d->
         if(name.trim().isNotEmpty()&&m in 1..12&&d in 1..31){
@@ -84,7 +86,7 @@ fun TodoScreen(tasks:List<TodoItem>,toggle:(Int)->Unit,delete:(Int)->Unit,clear:
         Text("کارهای امروز",fontSize=26.sp,fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Text(if(tasks.isEmpty())"هنوز کاری ثبت نشده است." else done.toString()+" از "+tasks.size+" کار انجام شده",color=MaterialTheme.colorScheme.onSurfaceVariant)
-        if(done>0)TextButton(onClick=clear){Icon(Icons.Default.RemoveDone,null);Spacer(Modifier.width(4.dp));Text("حذف انجام‌شده‌ها")}
+        if(done>0)TextButton(onClick={showDeleteCompleted=true}){Icon(Icons.Default.RemoveDone,null);Spacer(Modifier.width(4.dp));Text("حذف انجام‌شده‌ها")}
         if(tasks.isEmpty())Column(Modifier.fillMaxSize(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
             Icon(Icons.Default.CheckCircle,null);Spacer(Modifier.height(10.dp));Text("برای شروع روی + بزنید.")
         }else LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){items(tasks,key={it.id}){t->
