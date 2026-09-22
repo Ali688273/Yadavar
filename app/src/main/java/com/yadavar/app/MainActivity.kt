@@ -27,7 +27,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-data class TodoItem(val id: Int, val title: String, val done: Boolean = false)
+data class TodoItem(
+    val id: Int,
+    val title: String,
+    val done: Boolean = false,
+    val reminderHour: Int? = null,
+    val reminderMinute: Int? = null,
+    val repeat: String = "none"
+) {
+    val hasReminder: Boolean get() = reminderHour != null && reminderMinute != null
+}
 
 class MainActivity : ComponentActivity() {
     private val permission =
@@ -59,13 +68,19 @@ fun YadavarApp(context: Context) {
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
     val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
 
-    fun saveT() { saveTasks(context, tasks) }
+    fun saveT() {
+        saveTasks(context, tasks)
+        TaskNotificationScheduler.scheduleAll(context, tasks)
+    }
     fun saveB() {
         saveBirthdays(context, birthdays)
         BirthdayNotificationScheduler.scheduleAll(context, birthdays)
     }
 
-    LaunchedEffect(Unit) { BirthdayNotificationScheduler.scheduleAll(context, birthdays) }
+    LaunchedEffect(Unit) {
+        BirthdayNotificationScheduler.scheduleAll(context, birthdays)
+        TaskNotificationScheduler.scheduleAll(context, tasks)
+    }
 
     Scaffold(
         topBar = {
@@ -130,6 +145,7 @@ fun YadavarApp(context: Context) {
             text = { Text("کار «" + task.title + "» حذف شود؟") },
             confirmButton = {
                 Button(onClick = {
+                    TaskNotificationScheduler.cancelTask(context, task.id)
                     tasks.removeAll { it.id == task.id }
                     saveT()
                     taskToDelete = null
@@ -179,9 +195,17 @@ fun YadavarApp(context: Context) {
     }
 
     if (addTask) {
-        AddTaskDialog(dismiss = { addTask = false }) { title ->
+        AddTaskDialog(dismiss = { addTask = false }) { title, hour, minute, repeat ->
             if (title.trim().isNotEmpty()) {
-                tasks.add(TodoItem((tasks.maxOfOrNull { it.id } ?: 0) + 1, title.trim()))
+                tasks.add(
+                    TodoItem(
+                        id = (tasks.maxOfOrNull { it.id } ?: 0) + 1,
+                        title = title.trim(),
+                        reminderHour = hour,
+                        reminderMinute = minute,
+                        repeat = repeat
+                    )
+                )
                 saveT()
             }
             addTask = false
@@ -193,10 +217,15 @@ fun YadavarApp(context: Context) {
         EditTaskDialog(
             task = task,
             dismiss = { editingTask = null },
-            save = { title ->
+            save = { title, hour, minute, repeat ->
                 val index = tasks.indexOfFirst { it.id == task.id }
                 if (index >= 0) {
-                    tasks[index] = task.copy(title = title.trim())
+                    tasks[index] = task.copy(
+                        title = title.trim(),
+                        reminderHour = hour,
+                        reminderMinute = minute,
+                        repeat = repeat
+                    )
                     saveT()
                 }
                 editingTask = null
@@ -331,7 +360,18 @@ fun TodoScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(t.done, { toggle(t.id) })
-                            Text(t.title, Modifier.weight(1f).padding(horizontal = 6.dp), fontSize = 17.sp)
+                            Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
+                                Text(t.title, fontSize = 17.sp)
+                                if (t.hasReminder) {
+                                    Text(
+                                        "⏰ " + t.reminderHour.toString().padStart(2, '0') + ":" +
+                                            t.reminderMinute.toString().padStart(2, '0') +
+                                            " • " + repeatLabel(t.repeat),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                             IconButton({ edit(t) }) { Icon(Icons.Default.Edit, "ویرایش") }
                             IconButton({ delete(t.id) }) { Icon(Icons.Default.Delete, "حذف") }
                         }
@@ -346,51 +386,131 @@ fun TodoScreen(
 fun EditTaskDialog(
     task: TodoItem,
     dismiss: () -> Unit,
-    save: (String) -> Unit
+    save: (String, Int?, Int?, String) -> Unit
 ) {
     var title by remember(task.id) { mutableStateOf(task.title) }
+    var reminderEnabled by remember(task.id) { mutableStateOf(task.hasReminder) }
+    var hour by remember(task.id) { mutableStateOf((task.reminderHour ?: 9).toString()) }
+    var minute by remember(task.id) { mutableStateOf((task.reminderMinute ?: 0).toString().padStart(2, '0')) }
+    var repeat by remember(task.id) { mutableStateOf(task.repeat) }
 
     AlertDialog(
         onDismissRequest = dismiss,
         title = { Text("ویرایش کار") },
         text = {
-            OutlinedTextField(
-                title,
-                { title = it },
-                Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("عنوان کار") }
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    title, { title = it }, Modifier.fillMaxWidth(),
+                    singleLine = true, label = { Text("عنوان کار") }
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(reminderEnabled, { reminderEnabled = it })
+                    Text("یادآوری زمان‌دار")
+                }
+                if (reminderEnabled) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            hour, { hour = it.filter(Char::isDigit).take(2) },
+                            Modifier.weight(1f), singleLine = true, label = { Text("ساعت") }
+                        )
+                        OutlinedTextField(
+                            minute, { minute = it.filter(Char::isDigit).take(2) },
+                            Modifier.weight(1f), singleLine = true, label = { Text("دقیقه") }
+                        )
+                    }
+                    RepeatSelector(repeat = repeat, onRepeatChange = { repeat = it })
+                }
+            }
         },
         confirmButton = {
             Button(
-                onClick = { save(title) },
-                enabled = title.trim().isNotEmpty()
-            ) {
-                Text("ذخیره تغییرات")
-            }
+                onClick = {
+                    val h = hour.toIntOrNull()?.takeIf { it in 0..23 }
+                    val m = minute.toIntOrNull()?.takeIf { it in 0..59 }
+                    save(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none")
+                },
+                enabled = title.trim().isNotEmpty() &&
+                    (!reminderEnabled || (hour.toIntOrNull() in 0..23 && minute.toIntOrNull() in 0..59))
+            ) { Text("ذخیره تغییرات") }
         },
         dismissButton = { TextButton(dismiss) { Text("انصراف") } }
     )
 }
 
 @Composable
-fun AddTaskDialog(dismiss: () -> Unit, add: (String) -> Unit) {
+fun AddTaskDialog(
+    dismiss: () -> Unit,
+    add: (String, Int?, Int?, String) -> Unit
+) {
     var title by remember { mutableStateOf("") }
+    var reminderEnabled by remember { mutableStateOf(false) }
+    var hour by remember { mutableStateOf("9") }
+    var minute by remember { mutableStateOf("00") }
+    var repeat by remember { mutableStateOf("daily") }
+
     AlertDialog(
         onDismissRequest = dismiss,
         title = { Text("کار جدید") },
         text = {
-            OutlinedTextField(
-                title, { title = it }, Modifier.fillMaxWidth(),
-                singleLine = true, label = { Text("عنوان کار") }
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    title, { title = it }, Modifier.fillMaxWidth(),
+                    singleLine = true, label = { Text("عنوان کار") }
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(reminderEnabled, { reminderEnabled = it })
+                    Text("یادآوری زمان‌دار")
+                }
+                if (reminderEnabled) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            hour, { hour = it.filter(Char::isDigit).take(2) },
+                            Modifier.weight(1f), singleLine = true, label = { Text("ساعت") }
+                        )
+                        OutlinedTextField(
+                            minute, { minute = it.filter(Char::isDigit).take(2) },
+                            Modifier.weight(1f), singleLine = true, label = { Text("دقیقه") }
+                        )
+                    }
+                    RepeatSelector(repeat = repeat, onRepeatChange = { repeat = it })
+                }
+            }
         },
         confirmButton = {
-            Button({ add(title) }, enabled = title.trim().isNotEmpty()) { Text("افزودن") }
+            Button(
+                onClick = {
+                    val h = hour.toIntOrNull()?.takeIf { it in 0..23 }
+                    val m = minute.toIntOrNull()?.takeIf { it in 0..59 }
+                    add(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none")
+                },
+                enabled = title.trim().isNotEmpty() &&
+                    (!reminderEnabled || (hour.toIntOrNull() in 0..23 && minute.toIntOrNull() in 0..59))
+            ) { Text("افزودن") }
         },
         dismissButton = { TextButton(dismiss) { Text("انصراف") } }
     )
+}
+
+@Composable
+fun RepeatSelector(repeat: String, onRepeatChange: (String) -> Unit) {
+    Text("تکرار یادآوری", fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        FilterChip(
+            selected = repeat == "daily",
+            onClick = { onRepeatChange("daily") },
+            label = { Text("روزانه") }
+        )
+        FilterChip(
+            selected = repeat == "weekly",
+            onClick = { onRepeatChange("weekly") },
+            label = { Text("هفتگی") }
+        )
+        FilterChip(
+            selected = repeat == "monthly",
+            onClick = { onRepeatChange("monthly") },
+            label = { Text("ماهانه") }
+        )
+    }
 }
 
 @Composable
@@ -570,6 +690,13 @@ fun SettingsScreen(total: Int, done: Int, birthdays: Int, modifier: Modifier = M
     }
 }
 
+private fun repeatLabel(value: String): String = when (value) {
+    "weekly" -> "هفتگی"
+    "monthly" -> "ماهانه"
+    "daily" -> "روزانه"
+    else -> "یک‌بار"
+}
+
 private fun loadTasks(context: Context): List<TodoItem> {
     val prefs = context.getSharedPreferences("yadavar_data", 0)
     val raw = prefs.getString("tasks", null) ?: return emptyList()
@@ -583,7 +710,21 @@ private fun loadTasks(context: Context): List<TodoItem> {
         else {
             val id = x[0].toIntOrNull()
             if (id == null) null
-            else TodoItem(id, x[2], if (shouldReset) false else x[1] == "1")
+            else {
+                val hour = x.getOrNull(3)?.toIntOrNull()
+                val minute = x.getOrNull(4)?.toIntOrNull()
+                val repeat = x.getOrNull(5)?.takeIf {
+                    it == "none" || it == "daily" || it == "weekly" || it == "monthly"
+                } ?: "none"
+                TodoItem(
+                    id = id,
+                    title = x[2],
+                    done = if (shouldReset) false else x[1] == "1",
+                    reminderHour = hour?.takeIf { it in 0..23 },
+                    reminderMinute = minute?.takeIf { it in 0..59 },
+                    repeat = repeat
+                )
+            }
         }
     }
 
