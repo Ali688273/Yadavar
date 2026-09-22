@@ -28,6 +28,9 @@ object BirthdayNotificationScheduler {
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val now = Calendar.getInstance()
 
+        cancel(context, alarm, TOMORROW_BASE + id)
+        cancel(context, alarm, TODAY_BASE + id)
+
         val birthday = Calendar.getInstance().apply {
             set(Calendar.YEAR, now.get(Calendar.YEAR))
             set(Calendar.MONTH, month - 1)
