@@ -50,6 +50,7 @@ fun YadavarApp(context: Context) {
     var addTask by remember { mutableStateOf(false) }
     var addBirthday by remember { mutableStateOf(false) }
     var editingBirthday by remember { mutableStateOf<StoredBirthday?>(null) }
+    var editingTask by remember { mutableStateOf<TodoItem?>(null) }
     var showDeleteCompleted by remember { mutableStateOf(false) }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
@@ -97,6 +98,7 @@ fun YadavarApp(context: Context) {
                         saveT()
                     }
                 },
+                edit = { editingTask = it },
                 delete = { id -> tasks.removeAll { it.id == id }; saveT() },
                 onRequestClear = { showDeleteCompleted = true },
                 modifier = Modifier.padding(pad)
@@ -139,6 +141,22 @@ fun YadavarApp(context: Context) {
             }
             addTask = false
         }
+    }
+
+    if (editingTask != null) {
+        val task = editingTask!!
+        EditTaskDialog(
+            task = task,
+            dismiss = { editingTask = null },
+            save = { title ->
+                val index = tasks.indexOfFirst { it.id == task.id }
+                if (index >= 0) {
+                    tasks[index] = task.copy(title = title.trim())
+                    saveT()
+                }
+                editingTask = null
+            }
+        )
     }
 
     if (addBirthday) {
@@ -187,6 +205,7 @@ fun YadavarApp(context: Context) {
 @Composable
 fun TodoScreen(
     tasks: List<TodoItem>,
+    edit: (TodoItem) -> Unit,
     toggle: (Int) -> Unit,
     delete: (Int) -> Unit,
     onRequestClear: () -> Unit,
@@ -228,6 +247,7 @@ fun TodoScreen(
                         ) {
                             Checkbox(t.done, { toggle(t.id) })
                             Text(t.title, Modifier.weight(1f).padding(horizontal = 6.dp), fontSize = 17.sp)
+                            IconButton({ edit(t) }) { Icon(Icons.Default.Edit, "ویرایش") }
                             IconButton({ delete(t.id) }) { Icon(Icons.Default.Delete, "حذف") }
                         }
                     }
@@ -235,6 +255,38 @@ fun TodoScreen(
             }
         }
     }
+}
+
+@Composable
+fun EditTaskDialog(
+    task: TodoItem,
+    dismiss: () -> Unit,
+    save: (String) -> Unit
+) {
+    var title by remember(task.id) { mutableStateOf(task.title) }
+
+    AlertDialog(
+        onDismissRequest = dismiss,
+        title = { Text("ویرایش کار") },
+        text = {
+            OutlinedTextField(
+                title,
+                { title = it },
+                Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("عنوان کار") }
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { save(title) },
+                enabled = title.trim().isNotEmpty()
+            ) {
+                Text("ذخیره تغییرات")
+            }
+        },
+        dismissButton = { TextButton(dismiss) { Text("انصراف") } }
+    )
 }
 
 @Composable
