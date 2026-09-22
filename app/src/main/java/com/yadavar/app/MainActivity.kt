@@ -60,26 +60,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            YadavarApp()
+            YadavarApp(this)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun YadavarApp() {
+fun YadavarApp(context: Context) {
 
     var selectedTab by remember {
         mutableIntStateOf(0)
     }
 
-    val tasks = remember {
-        mutableStateListOf(
-            TodoItem(1, "خرید روزانه"),
-            TodoItem(2, "تماس با دوست"),
-            TodoItem(3, "انجام کارهای امروز")
-        )
-    }
+    val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
+
+    fun saveTasksNow() = saveTasks(context, tasks)
 
     MaterialTheme {
 
@@ -165,12 +161,8 @@ fun YadavarApp() {
                             val newId =
                                 (tasks.maxOfOrNull { it.id } ?: 0) + 1
 
-                            tasks.add(
-                                TodoItem(
-                                    newId,
-                                    "کار جدید"
-                                )
-                            )
+                            tasks.add(TodoItem(newId, "کار جدید"))
+                            saveTasksNow()
                         }
                     ) {
 
@@ -201,18 +193,15 @@ fun YadavarApp() {
 
                                 val item = tasks[index]
 
-                                tasks[index] =
-                                    item.copy(
-                                        done = !item.done
-                                    )
+                                tasks[index] = item.copy(done = !item.done)
+                                saveTasksNow()
                             }
                         },
 
                         onDelete = { id ->
 
-                            tasks.removeAll {
-                                it.id == id
-                            }
+                            tasks.removeAll { it.id == id }
+                            saveTasksNow()
                         },
 
                         modifier = Modifier
@@ -421,4 +410,20 @@ fun SettingsScreen(
 fun PreviewYadavar() {
 
     YadavarApp()
+}
+
+
+private fun loadTasks(context: Context): List<TodoItem> {
+    val raw = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE).getString("tasks", null) ?: return emptyList()
+    return raw.split("\\n").mapNotNull { line ->
+        val p = line.split("\\t", limit = 3)
+        if (p.size != 3) return@mapNotNull null
+        val id = p[0].toIntOrNull() ?: return@mapNotNull null
+        TodoItem(id, p[2], p[1] == "1")
+    }
+}
+
+private fun saveTasks(context: Context, tasks: List<TodoItem>) {
+    val encoded = tasks.joinToString("\\n") { it.id.toString() + "\\t" + if (it.done) "1" else "0" + "\\t" + it.title.replace("\\n", " ").replace("\\t", " ") }
+    context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE).edit().putString("tasks", encoded).apply()
 }
