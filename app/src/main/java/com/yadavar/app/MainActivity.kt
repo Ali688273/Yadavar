@@ -523,7 +523,7 @@ private fun loadTasks(context: Context): List<TodoItem> {
     val raw = prefs.getString("tasks", null) ?: return emptyList()
     val savedDate = prefs.getString("tasks_date", null)
     val today = currentTaskDate()
-    val shouldReset = savedDate != null && savedDate != today
+    val shouldReset = savedDate == null || savedDate != today
 
     val list = raw.split("\n").mapNotNull { p ->
         val x = p.split("\t", limit = 3)
