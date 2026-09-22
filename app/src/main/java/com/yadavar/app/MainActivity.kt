@@ -739,7 +739,10 @@ private fun saveTasks(context: Context, list: List<TodoItem>) {
             list.joinToString("\n") {
                 it.id.toString() + "\t" +
                     (if (it.done) "1" else "0") + "\t" +
-                    it.title.replace("\n", " ").replace("\t", " ")
+                    it.title.replace("\n", " ").replace("\t", " ") + "\t" +
+                    (it.reminderHour?.toString() ?: "") + "\t" +
+                    (it.reminderMinute?.toString() ?: "") + "\t" +
+                    it.repeat
             }
         )
         .putString("tasks_date", currentTaskDate())
