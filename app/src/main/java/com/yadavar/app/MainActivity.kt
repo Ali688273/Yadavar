@@ -1,9 +1,13 @@
 package com.yadavar.app
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,167 +17,144 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yadavar.app.core.BirthdayNotificationScheduler
 import com.yadavar.app.core.BirthdayReminderEngine
+import com.yadavar.app.core.StoredBirthday
 
-data class TodoItem(val id: Int, val title: String, val done: Boolean = false)
+data class TodoItem(val id:Int,val title:String,val done:Boolean=false)
 
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent { YadavarApp(this) }
+class MainActivity:ComponentActivity(){
+    private val permission=registerForActivityResult(ActivityResultContracts.RequestPermission()){}
+    override fun onCreate(state:Bundle?){
+        super.onCreate(state)
+        if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        setContent{YadavarApp(this)}
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun YadavarApp(context: Context) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var showAddDialog by remember { mutableStateOf(false) }
-    val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
+fun YadavarApp(context:Context){
+    var tab by remember{mutableIntStateOf(0)}
+    var addTask by remember{mutableStateOf(false)}
+    var addBirthday by remember{mutableStateOf(false)}
+    val tasks=remember{mutableStateListOf<TodoItem>().apply{addAll(loadTasks(context))}}
+    val birthdays=remember{mutableStateListOf<StoredBirthday>().apply{addAll(loadBirthdays(context))}}
 
-    fun save() = saveTasks(context, tasks)
-    fun addTask(title: String) {
-        val clean = title.trim()
-        if (clean.isNotEmpty()) {
-            tasks.add(TodoItem((tasks.maxOfOrNull { it.id } ?: 0) + 1, clean))
-            save()
+    fun saveT(){saveTasks(context,tasks)}
+    fun saveB(){saveBirthdays(context,birthdays);BirthdayNotificationScheduler.scheduleAll(context,birthdays)}
+
+    LaunchedEffect(Unit){BirthdayNotificationScheduler.scheduleAll(context,birthdays)}
+
+    Scaffold(
+        topBar={TopAppBar(title={Text(if(tab==0)"یادآور" else if(tab==1)"تولدها 🎂" else "تنظیمات",fontWeight=FontWeight.Bold)})},
+        bottomBar={NavigationBar{
+            NavigationBarItem(tab==0,{tab=0},{Icon(Icons.Default.Checklist,"کارها")},{Text("کارها")})
+            NavigationBarItem(tab==1,{tab=1},{Icon(Icons.Default.Cake,"تولدها")},{Text("تولدها")})
+            NavigationBarItem(tab==2,{tab=2},{Icon(Icons.Default.Settings,"تنظیمات")},{Text("تنظیمات")})
+        }},
+        floatingActionButton={
+            if(tab<2)FloatingActionButton(onClick={if(tab==0)addTask=true else addBirthday=true}){Icon(Icons.Default.Add,"افزودن")}
+        }
+    ){pad->
+        when(tab){
+            0->TodoScreen(tasks,{id->val i=tasks.indexOfFirst{it.id==id};if(i>=0){tasks[i]=tasks[i].copy(done=!tasks[i].done);saveT()}},
+                {id->tasks.removeAll{it.id==id};saveT()},{tasks.removeAll{it.done};saveT()},Modifier.padding(pad))
+            1->BirthdayScreen(birthdays,{b->BirthdayNotificationScheduler.cancelBirthday(context,b.month,b.day);birthdays.removeAll{it.id==b.id};saveB()},Modifier.padding(pad))
+            else->SettingsScreen(tasks.size,tasks.count{it.done},birthdays.size,Modifier.padding(pad))
         }
     }
-    fun toggleTask(id: Int) {
-        val i = tasks.indexOfFirst { it.id == id }
-        if (i >= 0) { tasks[i] = tasks[i].copy(done = !tasks[i].done); save() }
+    if(addTask)AddTaskDialog({addTask=false}){title->if(title.trim().isNotEmpty()){tasks.add(TodoItem((tasks.maxOfOrNull{it.id}?:0)+1,title.trim()));saveT()};addTask=false}
+    if(addBirthday)AddBirthdayDialog({addBirthday=false}){name,m,d->
+        if(name.trim().isNotEmpty()&&m in 1..12&&d in 1..31){
+            val b=StoredBirthday((birthdays.maxOfOrNull{it.id}?:0)+1,name.trim(),m,d);birthdays.add(b);saveB()
+        };addBirthday=false
     }
-    fun deleteTask(id: Int) { tasks.removeAll { it.id == id }; save() }
-    fun clearCompleted() { tasks.removeAll { it.done }; save() }
-
-    MaterialTheme {
-        Scaffold(
-            topBar = { TopAppBar(title = { Text(when (selectedTab) { 0 -> "یادآور"; 1 -> "تولدها 🎂"; else -> "تنظیمات" }, fontWeight = FontWeight.Bold) }) },
-            bottomBar = {
-                NavigationBar {
-                    NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.Checklist, "کارها") }, label = { Text("کارها") })
-                    NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Icon(Icons.Default.Cake, "تولدها") }, label = { Text("تولدها") })
-                    NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.Settings, "تنظیمات") }, label = { Text("تنظیمات") })
-                }
-            },
-            floatingActionButton = { if (selectedTab == 0) FloatingActionButton(onClick = { showAddDialog = true }) { Icon(Icons.Default.Add, "افزودن") } }
-        ) { padding ->
-            when (selectedTab) {
-                0 -> TodoScreen(tasks, ::toggleTask, ::deleteTask, ::clearCompleted, Modifier.padding(padding))
-                1 -> BirthdayScreen(Modifier.padding(padding))
-                2 -> SettingsScreen(tasks.size, tasks.count { it.done }, Modifier.padding(padding))
-            }
-        }
-    }
-
-    if (showAddDialog) AddTaskDialog({ showAddDialog = false }) { addTask(it); showAddDialog = false }
 }
 
 @Composable
-fun TodoScreen(tasks: List<TodoItem>, onToggle: (Int) -> Unit, onDelete: (Int) -> Unit, onClearCompleted: () -> Unit, modifier: Modifier = Modifier) {
-    val completed = tasks.count { it.done }
-    Column(modifier.fillMaxSize().padding(16.dp)) {
-        Text("کارهای امروز", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+fun TodoScreen(tasks:List<TodoItem>,toggle:(Int)->Unit,delete:(Int)->Unit,clear:()->Unit,modifier:Modifier=Modifier){
+    val done=tasks.count{it.done}
+    Column(modifier.fillMaxSize().padding(16.dp)){
+        Text("کارهای امروز",fontSize=26.sp,fontWeight=FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        Text(if (tasks.isEmpty()) "هنوز کاری ثبت نشده است." else completed.toString() + " از " + tasks.size + " کار انجام شده", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (completed > 0) TextButton(onClick = onClearCompleted) { Icon(Icons.Default.RemoveDone, null); Spacer(Modifier.width(4.dp)); Text("حذف کارهای انجام‌شده") }
-        Spacer(Modifier.height(6.dp))
-        if (tasks.isEmpty()) {
-            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Icon(Icons.Default.CheckCircle, null)
-                Spacer(Modifier.height(10.dp))
-                Text("برای شروع، روی + بزنید.")
-            }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(tasks, key = { it.id }) { task -> TodoCard(task, { onToggle(task.id) }, { onDelete(task.id) }) }
-            }
-        }
+        Text(if(tasks.isEmpty())"هنوز کاری ثبت نشده است." else done.toString()+" از "+tasks.size+" کار انجام شده",color=MaterialTheme.colorScheme.onSurfaceVariant)
+        if(done>0)TextButton(onClick=clear){Icon(Icons.Default.RemoveDone,null);Spacer(Modifier.width(4.dp));Text("حذف انجام‌شده‌ها")}
+        if(tasks.isEmpty())Column(Modifier.fillMaxSize(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
+            Icon(Icons.Default.CheckCircle,null);Spacer(Modifier.height(10.dp));Text("برای شروع روی + بزنید.")
+        }else LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){items(tasks,key={it.id}){t->
+            Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){
+                Checkbox(t.done,{toggle(t.id)});Text(t.title,Modifier.weight(1f).padding(horizontal=6.dp),fontSize=17.sp);IconButton({delete(t.id)}){Icon(Icons.Default.Delete,"حذف")}
+            }}
+        }}
     }
 }
 
 @Composable
-fun TodoCard(task: TodoItem, onToggle: () -> Unit, onDelete: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(3.dp)) {
-        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = task.done, onCheckedChange = { onToggle() })
-            Text(task.title, Modifier.weight(1f).padding(horizontal = 6.dp), fontSize = 17.sp)
-            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "حذف") }
-        }
+fun AddTaskDialog(dismiss:()->Unit,add:(String)->Unit){
+    var title by remember{mutableStateOf("")}
+    AlertDialog(onDismissRequest=dismiss,title={Text("کار جدید")},text={OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("عنوان کار")})},
+        confirmButton={Button({add(title)},enabled=title.trim().isNotEmpty()){Text("افزودن")}},dismissButton={TextButton(dismiss){Text("انصراف")}})
+}
+
+@Composable
+fun BirthdayScreen(list:List<StoredBirthday>,delete:(StoredBirthday)->Unit,modifier:Modifier=Modifier){
+    Column(modifier.fillMaxSize().padding(16.dp)){
+        Text("تولد عزیزان",fontSize=26.sp,fontWeight=FontWeight.Bold)
+        Text("یک روز قبل و روز تولد اعلان ارسال می‌شود.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(14.dp))
+        if(list.isEmpty())Column(Modifier.fillMaxSize(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
+            Icon(Icons.Default.Cake,null);Spacer(Modifier.height(10.dp));Text("اولین تولد را با + اضافه کنید 🎂")
+        }else LazyColumn(verticalArrangement=Arrangement.spacedBy(10.dp)){items(list,key={it.id}){b->
+            val r=BirthdayReminderEngine.reminder(b.name,b.month,b.day)
+            Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically){
+                Icon(Icons.Default.Cake,null);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){
+                    Text(b.name,fontSize=18.sp,fontWeight=FontWeight.Bold)
+                    Text("تاریخ: "+b.day+"/"+b.month,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if(r.isToday)"امروز تولدشه 🎉" else r.daysUntil.toString()+" روز تا تولد")
+                };IconButton({delete(b)}){Icon(Icons.Default.Delete,"حذف")}
+            }}
+        }}
     }
 }
 
 @Composable
-fun AddTaskDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
-    var title by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("کار جدید") },
-        text = { OutlinedTextField(value = title, onValueChange = { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("عنوان کار") }) },
-        confirmButton = { Button(onClick = { onAdd(title) }, enabled = title.trim().isNotEmpty()) { Text("افزودن") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
-    )
+fun AddBirthdayDialog(dismiss:()->Unit,add:(String,Int,Int)->Unit){
+    var name by remember{mutableStateOf("")};var day by remember{mutableStateOf("")};var month by remember{mutableStateOf("")}
+    val d=day.toIntOrNull();val m=month.toIntOrNull()
+    AlertDialog(onDismissRequest=dismiss,title={Text("افزودن تولد")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+        OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("نام")})
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            OutlinedTextField(day,{day=it.filter(Char::isDigit)},Modifier.weight(1f),singleLine=true,label={Text("روز")})
+            OutlinedTextField(month,{month=it.filter(Char::isDigit)},Modifier.weight(1f),singleLine=true,label={Text("ماه")})
+        };Text("مثال: 15 / 7",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }},confirmButton={Button({add(name,m?:0,d?:0)},enabled=name.isNotBlank()&&m in 1..12&&d in 1..31){Text("ذخیره")}},dismissButton={TextButton(dismiss){Text("انصراف")}})
 }
 
 @Composable
-fun BirthdayScreen(modifier: Modifier = Modifier) {
-    val reminder = BirthdayReminderEngine.reminder("نمونه تولد", 1, 1)
-    Column(modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(Icons.Default.Cake, null)
-        Spacer(Modifier.height(16.dp))
-        Text("تولد عزیزانت", fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(18.dp)) {
-                Text("یادآوری نمونه", fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(6.dp))
-                Text(if (reminder.isToday) "امروز تولد " + reminder.name + " است 🎂" else reminder.name + ": " + reminder.daysUntil + " روز تا تولد")
-                Spacer(Modifier.height(8.dp))
-                Text("محاسبه زمان باقی‌مانده آماده است.")
-            }
-        }
+fun SettingsScreen(total:Int,done:Int,birthdays:Int,modifier:Modifier=Modifier){
+    Column(modifier.fillMaxSize().padding(20.dp)){Text("تنظیمات",fontSize=25.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(20.dp))
+        Card(Modifier.fillMaxWidth()){Column(Modifier.padding(16.dp)){Text("آمار",fontWeight=FontWeight.Bold);Spacer(Modifier.height(8.dp));Text("کل کارها: "+total);Text("انجام‌شده: "+done);Text("باقی‌مانده: "+(total-done));Text("تولدهای ثبت‌شده: "+birthdays)}}
+        Spacer(Modifier.height(20.dp));Text("اعلان تولد یک روز قبل و روز تولد فعال است.");Spacer(Modifier.height(20.dp));Text("نسخه 1.1.0")
     }
 }
 
-@Composable
-fun SettingsScreen(totalTasks: Int, completedTasks: Int, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize().padding(20.dp)) {
-        Text("تنظیمات", fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(20.dp))
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("آمار کارها", fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                Text("کل کارها: " + totalTasks)
-                Text("انجام‌شده: " + completedTasks)
-                Text("باقی‌مانده: " + (totalTasks - completedTasks))
-            }
-        }
-        Spacer(Modifier.height(20.dp))
-        Text("اعلان‌های تولد در مرحله بعد به زمان‌بندی واقعی متصل می‌شوند.")
-        Spacer(Modifier.height(20.dp))
-        Text("نسخه 1.0.0")
-        Spacer(Modifier.height(8.dp))
-        Text("یادآور | چک‌لیست و یادآوری تولد عزیزان")
-    }
+private fun loadTasks(c:Context):List<TodoItem>{
+    val raw=c.getSharedPreferences("yadavar_data",0).getString("tasks",null)?:return emptyList()
+    return raw.split("\n").mapNotNull{p->val x=p.split("\t",limit=3);if(x.size!=3)null else{val id=x[0].toIntOrNull();if(id==null)null else TodoItem(id,x[2],x[1]=="1")}}
 }
-
-private fun loadTasks(context: Context): List<TodoItem> {
-    val raw = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE).getString("tasks", null) ?: return emptyList()
-    return raw.split("\n").mapNotNull { line ->
-        val p = line.split("\t", limit = 3)
-        if (p.size != 3) return@mapNotNull null
-        val id = p[0].toIntOrNull() ?: return@mapNotNull null
-        TodoItem(id, p[2], p[1] == "1")
-    }
+private fun saveTasks(c:Context,list:List<TodoItem>){
+    c.getSharedPreferences("yadavar_data",0).edit().putString("tasks",list.joinToString("\n"){it.id.toString()+"\t"+if(it.done)"1"else"0"+"\t"+it.title.replace("\n"," ").replace("\t"," ")}).apply()
 }
-
-private fun saveTasks(context: Context, tasks: List<TodoItem>) {
-    val encoded = tasks.joinToString("\n") {
-        it.id.toString() + "\t" + if (it.done) "1" else "0" + "\t" + it.title.replace("\n", " ").replace("\t", " ")
-    }
-    context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE).edit().putString("tasks", encoded).apply()
+private fun loadBirthdays(c:Context):List<StoredBirthday>{
+    val raw=c.getSharedPreferences("yadavar_data",0).getString("birthdays",null)?:return emptyList()
+    return raw.split("\n").mapNotNull{p->val x=p.split("\t",limit=4);if(x.size!=4)null else{val id=x[0].toIntOrNull();val m=x[2].toIntOrNull();val d=x[3].toIntOrNull();if(id==null||m==null||d==null||m !in 1..12||d !in 1..31)null else StoredBirthday(id,x[1],m,d)}}
+}
+private fun saveBirthdays(c:Context,list:List<StoredBirthday>){
+    c.getSharedPreferences("yadavar_data",0).edit().putString("birthdays",list.joinToString("\n"){it.id.toString()+"\t"+it.name.replace("\n"," ").replace("\t"," ")+"\t"+it.month+"\t"+it.day}).apply()
 }
