@@ -545,7 +545,7 @@ private fun saveTasks(context: Context, list: List<TodoItem>) {
             "tasks",
             list.joinToString("\n") {
                 it.id.toString() + "\t" +
-                    if (it.done) "1" else "0" + "\t" +
+                    (if (it.done) "1" else "0") + "\t" +
                     it.title.replace("\n", " ").replace("\t", " ")
             }
         )
