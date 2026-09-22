@@ -705,8 +705,8 @@ private fun loadTasks(context: Context): List<TodoItem> {
     val shouldReset = savedDate == null || savedDate != today
 
     val list = raw.split("\n").mapNotNull { p ->
-        val x = p.split("\t", limit = 3)
-        if (x.size != 3) null
+        val x = p.split("\t", limit = 6)
+        if (x.size < 3) null
         else {
             val id = x[0].toIntOrNull()
             if (id == null) null
