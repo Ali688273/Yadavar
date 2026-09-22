@@ -49,6 +49,7 @@ fun YadavarApp(context: Context) {
     var tab by remember { mutableIntStateOf(0) }
     var addTask by remember { mutableStateOf(false) }
     var addBirthday by remember { mutableStateOf(false) }
+    var editingBirthday by remember { mutableStateOf<StoredBirthday?>(null) }
     var showDeleteCompleted by remember { mutableStateOf(false) }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
@@ -101,13 +102,14 @@ fun YadavarApp(context: Context) {
                 modifier = Modifier.padding(pad)
             )
             1 -> BirthdayScreen(
-                birthdays,
-                { b ->
+                list = birthdays,
+                edit = { editingBirthday = it },
+                delete = { b ->
                     BirthdayNotificationScheduler.cancelBirthday(context, b.id, b.month, b.day)
                     birthdays.removeAll { it.id == b.id }
                     saveB()
                 },
-                Modifier.padding(pad)
+                modifier = Modifier.padding(pad)
             )
             else -> SettingsScreen(tasks.size, tasks.count { it.done }, birthdays.size, Modifier.padding(pad))
         }
@@ -154,6 +156,31 @@ fun YadavarApp(context: Context) {
             }
             addBirthday = false
         }
+    }
+
+    editingBirthday?.let { birthday ->
+        EditBirthdayDialog(
+            birthday = birthday,
+            dismiss = { editingBirthday = null },
+            save = { name, month, day ->
+                val index = birthdays.indexOfFirst { it.id == birthday.id }
+                if (index >= 0) {
+                    BirthdayNotificationScheduler.cancelBirthday(
+                        context,
+                        birthday.id,
+                        birthday.month,
+                        birthday.day
+                    )
+                    birthdays[index] = birthday.copy(
+                        name = name.trim(),
+                        month = month,
+                        day = day
+                    )
+                    saveB()
+                }
+                editingBirthday = null
+            }
+        )
     }
 }
 
@@ -232,6 +259,7 @@ fun AddTaskDialog(dismiss: () -> Unit, add: (String) -> Unit) {
 @Composable
 fun BirthdayScreen(
     list: List<StoredBirthday>,
+    edit: (StoredBirthday) -> Unit,
     delete: (StoredBirthday) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -265,6 +293,7 @@ fun BirthdayScreen(
                                 Text("تاریخ: " + b.day + "/" + b.month, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(if (r.isToday) "امروز تولدشه 🎉" else r.daysUntil.toString() + " روز تا تولد")
                             }
+                            IconButton({ edit(b) }) { Icon(Icons.Default.Edit, "ویرایش") }
                             IconButton({ delete(b) }) { Icon(Icons.Default.Delete, "حذف") }
                         }
                     }
@@ -303,9 +332,69 @@ fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int) -> Unit) {
                     name.isBlank() -> error = "نام را وارد کنید"
                     m == null || d == null -> error = "روز و ماه را وارد کنید"
                     !isValidBirthdayDate(m, d) -> error = "این تاریخ معتبر نیست"
-                    else -> { add(name, m, d); dismiss() }
+                    else -> add(name, m, d)
                 }
             }) { Text("ذخیره") }
+        },
+        dismissButton = { TextButton(dismiss) { Text("انصراف") } }
+    )
+}
+
+@Composable
+fun EditBirthdayDialog(
+    birthday: StoredBirthday,
+    dismiss: () -> Unit,
+    save: (String, Int, Int) -> Unit
+) {
+    var name by remember(birthday.id) { mutableStateOf(birthday.name) }
+    var day by remember(birthday.id) { mutableStateOf(birthday.day.toString()) }
+    var month by remember(birthday.id) { mutableStateOf(birthday.month.toString()) }
+    var error by remember(birthday.id) { mutableStateOf("") }
+
+    val d = day.toIntOrNull()
+    val m = month.toIntOrNull()
+
+    AlertDialog(
+        onDismissRequest = dismiss,
+        title = { Text("ویرایش تولد") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    name,
+                    { name = it },
+                    Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("نام") }
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        day,
+                        { day = it.filter(Char::isDigit) },
+                        Modifier.weight(1f),
+                        singleLine = true,
+                        label = { Text("روز") }
+                    )
+                    OutlinedTextField(
+                        month,
+                        { month = it.filter(Char::isDigit) },
+                        Modifier.weight(1f),
+                        singleLine = true,
+                        label = { Text("ماه") }
+                    )
+                }
+                Text("مثال: 15 / 7", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                when {
+                    name.isBlank() -> error = "نام را وارد کنید"
+                    m == null || d == null -> error = "روز و ماه را وارد کنید"
+                    !isValidBirthdayDate(m, d) -> error = "این تاریخ معتبر نیست"
+                    else -> save(name, m, d)
+                }
+            }) { Text("ذخیره تغییرات") }
         },
         dismissButton = { TextButton(dismiss) { Text("انصراف") } }
     )
