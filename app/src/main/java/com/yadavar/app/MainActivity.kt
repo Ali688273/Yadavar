@@ -127,15 +127,38 @@ fun BirthdayScreen(list:List<StoredBirthday>,delete:(StoredBirthday)->Unit,modif
 
 @Composable
 fun AddBirthdayDialog(dismiss:()->Unit,add:(String,Int,Int)->Unit){
-    var name by remember{mutableStateOf("")};var day by remember{mutableStateOf("")};var month by remember{mutableStateOf("")}
-    val d=day.toIntOrNull();val m=month.toIntOrNull()
-    AlertDialog(onDismissRequest=dismiss,title={Text("افزودن تولد")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-        OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("نام")})
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            OutlinedTextField(day,{day=it.filter(Char::isDigit)},Modifier.weight(1f),singleLine=true,label={Text("روز")})
-            OutlinedTextField(month,{month=it.filter(Char::isDigit)},Modifier.weight(1f),singleLine=true,label={Text("ماه")})
-        };Text("مثال: 15 / 7",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-    }},confirmButton={Button({add(name,m?:0,d?:0)},enabled=name.isNotBlank()&&m in 1..12&&d in 1..31){Text("ذخیره")}},dismissButton={TextButton(dismiss){Text("انصراف")}})
+    var name by remember{mutableStateOf("")}
+    var day by remember{mutableStateOf("")}
+    var month by remember{mutableStateOf("")}
+    var error by remember{mutableStateOf("")}
+    val d=day.toIntOrNull()
+    val m=month.toIntOrNull()
+    AlertDialog(
+        onDismissRequest=dismiss,
+        title={Text("افزودن تولد")},
+        text={
+            Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+                OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("نام")})
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    OutlinedTextField(day,{day=it.filter(Char::isDigit)},Modifier.weight(1f),singleLine=true,label={Text("روز")})
+                    OutlinedTextField(month,{month=it.filter(Char::isDigit)},Modifier.weight(1f),singleLine=true,label={Text("ماه")})
+                }
+                Text("مثال: 15 / 7",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                if(error.isNotEmpty()) Text(error,color=MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton={
+            Button(onClick={
+                when{
+                    name.isBlank()->error="نام را وارد کنید"
+                    m !in 1..12->error="ماه باید بین 1 تا 12 باشد"
+                    d !in 1..31->error="روز باید بین 1 تا 31 باشد"
+                    else->{add(name,m!!,d!!);dismiss()}
+                }
+            }){Text("ذخیره")}
+        },
+        dismissButton={TextButton(dismiss){Text("انصراف")}}
+    )
 }
 
 @Composable
