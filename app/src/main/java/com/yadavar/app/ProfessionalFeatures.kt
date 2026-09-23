@@ -186,9 +186,9 @@ private fun AdvancedTaskCard(task: TodoItem, toggle: () -> Unit, edit: () -> Uni
             Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
                 Text(task.title, fontWeight = if (task.priority == "high") FontWeight.Bold else FontWeight.Normal)
                 val meta = buildList {
-                    if (task.dueDate.isNotBlank()) add("سررسید \${task.dueDate}")
-                    if (task.tags.isNotBlank()) add("#\${task.tags.replace(",", " #")}")
-                    if (task.subtasks.isNotBlank()) add("زیرکار \${task.subtasks.split("|").size}")
+                    if (task.dueDate.isNotBlank()) add("سررسید " + task.dueDate)
+                    if (task.tags.isNotBlank()) add("#" + task.tags.replace(",", " #"))
+                    if (task.subtasks.isNotBlank()) add("زیرکار " + task.subtasks.split("|").size)
                 }.joinToString(" • ")
                 if (meta.isNotBlank()) Text(meta, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (task.note.isNotBlank()) Text(task.note, fontSize = 12.sp)
