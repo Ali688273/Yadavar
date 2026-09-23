@@ -11,12 +11,14 @@ import com.yadavar.app.MainActivity
 import com.yadavar.app.R
 
 class TaskNotificationReceiver : BroadcastReceiver() {
+
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getIntExtra(EXTRA_ID, -1)
         val title = intent.getStringExtra(EXTRA_TITLE) ?: return
         val repeat = intent.getStringExtra(EXTRA_REPEAT) ?: "none"
         val snoozed = intent.getBooleanExtra(EXTRA_SNOOZED, false)
         val action = intent.getStringExtra(EXTRA_ACTION)
+
         if (id < 0) return
 
         if (action == ACTION_SNOOZE) {
@@ -99,37 +101,42 @@ class TaskNotificationReceiver : BroadcastReceiver() {
             .getString("tasks", null)
             ?: return null
 
-        return raw.split("
-").asSequence().mapNotNull { row ->
-            val x = row.split("	", limit = 6)
-            if (x.size < 3) return@mapNotNull null
+        return raw
+            .split("\n")
+            .asSequence()
+            .mapNotNull { row ->
+                val x = row.split("\t", limit = 16)
+                if (x.size < 3) return@mapNotNull null
 
-            val taskId = x[0].toIntOrNull() ?: return@mapNotNull null
-            if (taskId != id) return@mapNotNull null
+                val taskId = x[0].toIntOrNull() ?: return@mapNotNull null
+                if (taskId != id) return@mapNotNull null
 
-            val hour = x.getOrNull(3)?.toIntOrNull()
-            val minute = x.getOrNull(4)?.toIntOrNull()
-            val taskRepeat = x.getOrNull(5) ?: "none"
+                val hour = x.getOrNull(3)?.toIntOrNull()
+                val minute = x.getOrNull(4)?.toIntOrNull()
+                val taskRepeat = x.getOrNull(5) ?: "none"
 
-            com.yadavar.app.TodoItem(
-                id = taskId,
-                title = x[2],
-                done = x[1] == "1",
-                reminderHour = hour?.takeIf { it in 0..23 },
-                reminderMinute = minute?.takeIf { it in 0..59 },
-                repeat = taskRepeat,
-                category = x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی",
-                priority = x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal",
-                startDate = x.getOrNull(8).orEmpty(),
-                dueDate = x.getOrNull(9).orEmpty(),
-                note = x.getOrNull(10).orEmpty(),
-                tags = x.getOrNull(11).orEmpty(),
-                subtasks = x.getOrNull(12).orEmpty(),
-                location = x.getOrNull(13).orEmpty(),
-                customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" }
-            )
-        }.firstOrNull()
+                com.yadavar.app.TodoItem(
+                    id = taskId,
+                    title = x[2],
+                    done = x[1] == "1",
+                    reminderHour = hour?.takeIf { it in 0..23 },
+                    reminderMinute = minute?.takeIf { it in 0..59 },
+                    repeat = taskRepeat,
+                    category = x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی",
+                    priority = x.getOrNull(7)
+                        ?.takeIf { it == "low" || it == "normal" || it == "high" }
+                        ?: "normal",
+                    startDate = x.getOrNull(8).orEmpty(),
+                    dueDate = x.getOrNull(9).orEmpty(),
+                    note = x.getOrNull(10).orEmpty(),
+                    tags = x.getOrNull(11).orEmpty(),
+                    subtasks = x.getOrNull(12).orEmpty(),
+                    location = x.getOrNull(13).orEmpty(),
+                    customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                    customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" }
+                )
+            }
+            .firstOrNull()
     }
 
     companion object {
