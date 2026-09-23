@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import java.util.Calendar
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 object TaskNotificationScheduler {
     private const val BASE = 300000
@@ -41,6 +43,27 @@ object TaskNotificationScheduler {
                 while (next.timeInMillis <= now.timeInMillis) {
                     next.add(Calendar.MONTH, 1)
                 }
+            }
+            "yearly" -> {
+                val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+                if (base != null) {
+                    next.set(Calendar.MONTH, base.monthValue - 1)
+                    next.set(Calendar.DAY_OF_MONTH, base.dayOfMonth)
+                    while (next.timeInMillis <= now.timeInMillis) next.add(Calendar.YEAR, 1)
+                } else return
+            }
+            "custom" -> {
+                val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
+                if (base != null) {
+                    val every = task.customEvery.coerceAtLeast(1)
+                    while (next.timeInMillis <= now.timeInMillis) {
+                        when (task.customUnit.lowercase()) {
+                            "week", "هفته", "هفتگی" -> next.add(Calendar.WEEK_OF_YEAR, every)
+                            "month", "ماه", "ماهانه" -> next.add(Calendar.MONTH, every)
+                            else -> next.add(Calendar.DAY_OF_YEAR, every)
+                        }
+                    }
+                } else return
             }
             "daily" -> {
                 if (next.timeInMillis <= now.timeInMillis) {
