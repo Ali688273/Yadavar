@@ -12,7 +12,7 @@ class TaskBootReceiver : BroadcastReceiver() {
             .getString("tasks", null) ?: return
 
         val tasks = raw.split("\n").mapNotNull { row ->
-            val x = row.split("\t", limit = 6)
+            val x = row.split("\t", limit = 8)
             if (x.size < 3) null else {
                 val id = x[0].toIntOrNull()
                 val hour = x.getOrNull(3)?.toIntOrNull()
@@ -22,7 +22,9 @@ class TaskBootReceiver : BroadcastReceiver() {
                     id, x[2], x[1] == "1",
                     hour?.takeIf { it in 0..23 },
                     minute?.takeIf { it in 0..59 },
-                    repeat
+                    repeat,
+                    x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی",
+                    x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal"
                 )
             }
         }
