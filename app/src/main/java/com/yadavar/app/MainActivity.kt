@@ -79,6 +79,9 @@ fun YadavarApp(context: Context) {
     var birthdayToDelete by remember { mutableStateOf<StoredBirthday?>(null) }
     var taskQuery by remember { mutableStateOf("") }
 
+    val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
+    val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
+
     val exportBackupLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? ->
@@ -112,8 +115,6 @@ fun YadavarApp(context: Context) {
         }
     }
 
-    val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
-    val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
 
     fun saveT() {
         saveTasks(context, tasks)
@@ -908,6 +909,15 @@ private fun saveBirthdays(context: Context, list: List<StoredBirthday>) {
                     "\t" + it.month + "\t" + it.day
             }
         ).apply()
+}
+
+private fun repeatLabel(value: String): String = when (value) {
+    "weekly" -> "هفتگی"
+    "monthly" -> "ماهانه"
+    "daily" -> "روزانه"
+    "yearly" -> "سالانه"
+    "custom" -> "سفارشی"
+    else -> "یک‌بار"
 }
 
 private fun currentTaskDate(): String =
