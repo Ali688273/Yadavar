@@ -6,7 +6,7 @@ plugins {
 android {
     namespace = "com.yadavar.app"
 
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.yadavar.app"
