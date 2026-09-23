@@ -117,7 +117,9 @@ class TaskNotificationReceiver : BroadcastReceiver() {
                 done = x[1] == "1",
                 reminderHour = hour?.takeIf { it in 0..23 },
                 reminderMinute = minute?.takeIf { it in 0..59 },
-                repeat = taskRepeat
+                repeat = taskRepeat,
+                category = x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی",
+                priority = x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal"
             )
         }.firstOrNull()
     }
@@ -131,9 +133,4 @@ class TaskNotificationReceiver : BroadcastReceiver() {
         const val EXTRA_ACTION = "task_action"
         const val ACTION_SNOOZE = "snooze"
     }
-}
-
-private object CalendarHour {
-    fun nowHour(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    fun nowMinute(): Int = java.util.Calendar.getInstance().get(java.util.Calendar.MINUTE)
 }
