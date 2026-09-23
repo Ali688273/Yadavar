@@ -36,7 +36,15 @@ data class TodoItem(
     val reminderMinute: Int? = null,
     val repeat: String = "none",
     val category: String = "عمومی",
-    val priority: String = "normal"
+    val priority: String = "normal",
+    val startDate: String = "",
+    val dueDate: String = "",
+    val note: String = "",
+    val tags: String = "",
+    val subtasks: String = "",
+    val location: String = "",
+    val customEvery: Int = 1,
+    val customUnit: String = "day"
 ) {
     val hasReminder: Boolean get() = reminderHour != null && reminderMinute != null
 }
@@ -89,7 +97,7 @@ fun YadavarApp(context: Context) {
         topBar = {
             TopAppBar(title = {
                 Text(
-                    if (tab == 0) "یادآور" else if (tab == 1) "تولدها 🎂" else "تنظیمات",
+                    if (tab == 0) "یادآور" else if (tab == 1) "تولدها 🎂" else if (tab == 2) "حرفه‌ای" else "تنظیمات",
                     fontWeight = FontWeight.Bold
                 )
             })
@@ -98,7 +106,8 @@ fun YadavarApp(context: Context) {
             NavigationBar {
                 NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Default.Checklist, "کارها") }, { Text("کارها") })
                 NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Default.Cake, "تولدها") }, { Text("تولدها") })
-                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Default.Settings, "تنظیمات") }, { Text("تنظیمات") })
+                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Default.AutoAwesome, "حرفه‌ای") }, { Text("حرفه‌ای") })
+                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Default.Settings, "تنظیمات") }, { Text("تنظیمات") })
             }
         },
         floatingActionButton = {
@@ -136,6 +145,7 @@ fun YadavarApp(context: Context) {
                 },
                 modifier = Modifier.padding(pad)
             )
+            2 -> ProfessionalScreen(context = context, tasks = tasks, onAdd = { tasks.add(it); saveT() }, onUpdate = { item -> val i = tasks.indexOfFirst { it.id == item.id }; if (i >= 0) { tasks[i] = item; saveT() } }, onDelete = { id -> tasks.removeAll { it.id == id }; saveT() }, modifier = Modifier.padding(pad))
             else -> SettingsScreen(tasks.size, tasks.count { it.done }, birthdays.size, Modifier.padding(pad))
         }
     }
@@ -755,7 +765,7 @@ private fun loadTasks(context: Context): List<TodoItem> {
     val shouldReset = savedDate == null || savedDate != today
 
     val list = raw.split("\n").mapNotNull { p ->
-        val x = p.split("\t", limit = 8)
+        val x = p.split("\t", limit = 16)
         if (x.size < 3) null
         else {
             val id = x[0].toIntOrNull()
@@ -776,7 +786,15 @@ private fun loadTasks(context: Context): List<TodoItem> {
                     reminderMinute = minute?.takeIf { it in 0..59 },
                     repeat = repeat,
                     category = category,
-                    priority = priority
+                    priority = priority,
+                    startDate = x.getOrNull(8).orEmpty(),
+                    dueDate = x.getOrNull(9).orEmpty(),
+                    note = x.getOrNull(10).orEmpty(),
+                    tags = x.getOrNull(11).orEmpty(),
+                    subtasks = x.getOrNull(12).orEmpty(),
+                    location = x.getOrNull(13).orEmpty(),
+                    customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                    customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" }
                 )
             }
         }
@@ -797,7 +815,10 @@ private fun saveTasks(context: Context, list: List<TodoItem>) {
                     (it.reminderHour?.toString() ?: "") + "\t" +
                     (it.reminderMinute?.toString() ?: "") + "\t" +
                     it.repeat + "\t" + it.category.replace("\n", " ").replace("\t", " ") +
-                    "\t" + it.priority
+                    "\t" + it.priority + "\t" + it.startDate + "\t" + it.dueDate + "\t" +
+                    it.note.replace("\n", " ").replace("\t", " ") + "\t" + it.tags.replace("\n", " ").replace("\t", " ") + "\t" +
+                    it.subtasks.replace("\n", " ").replace("\t", " ") + "\t" + it.location.replace("\n", " ").replace("\t", " ") + "\t" +
+                    it.customEvery + "\t" + it.customUnit
             }
         )
         .putString("tasks_date", currentTaskDate())
