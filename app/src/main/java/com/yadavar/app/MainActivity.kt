@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yadavar.app.core.BackupManager
 import com.yadavar.app.core.BirthdayNotificationScheduler
 import com.yadavar.app.core.BirthdayReminderEngine
 import com.yadavar.app.core.StoredBirthday
@@ -75,6 +78,39 @@ fun YadavarApp(context: Context) {
     var taskToDelete by remember { mutableStateOf<TodoItem?>(null) }
     var birthdayToDelete by remember { mutableStateOf<StoredBirthday?>(null) }
     var taskQuery by remember { mutableStateOf("") }
+
+    val exportBackupLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
+                it.write(BackupManager.createBackup(context))
+            } ?: error("فایل خروجی باز نشد.")
+            Toast.makeText(context, "پشتیبان با موفقیت ذخیره شد.", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            Toast.makeText(context, "ذخیره پشتیبان انجام نشد.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val importBackupLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            val backup = BackupManager.restoreFromUri(context, uri)
+            BackupManager.applyBackup(context, backup)
+            tasks.clear()
+            tasks.addAll(loadTasks(context))
+            birthdays.clear()
+            birthdays.addAll(loadBirthdays(context))
+            TaskNotificationScheduler.scheduleAll(context, tasks)
+            BirthdayNotificationScheduler.scheduleAll(context, birthdays)
+            Toast.makeText(context, "بازیابی انجام شد: " + backup.tasks.size + " کار و " + backup.birthdays.size + " تولد", Toast.LENGTH_LONG).show()
+        }.onFailure {
+            Toast.makeText(context, "بازیابی انجام نشد: " + (it.message ?: "فایل نامعتبر است"), Toast.LENGTH_LONG).show()
+        }
+    }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
     val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
@@ -146,7 +182,18 @@ fun YadavarApp(context: Context) {
                 modifier = Modifier.padding(pad)
             )
             2 -> ProfessionalScreen(context = context, tasks = tasks, onAdd = { tasks.add(it); saveT() }, onUpdate = { item -> val i = tasks.indexOfFirst { it.id == item.id }; if (i >= 0) { tasks[i] = item; saveT() } }, onDelete = { id -> tasks.removeAll { it.id == id }; saveT() }, modifier = Modifier.padding(pad))
-            else -> SettingsScreen(tasks.size, tasks.count { it.done }, birthdays.size, Modifier.padding(pad))
+            else -> SettingsScreen(
+                total = tasks.size,
+                done = tasks.count { it.done },
+                birthdays = birthdays.size,
+                onExportBackup = {
+                    exportBackupLauncher.launch("yadavar-backup-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".json")
+                },
+                onImportBackup = {
+                    importBackupLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream"))
+                },
+                modifier = Modifier.padding(pad)
+            )
         }
     }
 
@@ -718,7 +765,14 @@ fun EditBirthdayDialog(
 }
 
 @Composable
-fun SettingsScreen(total: Int, done: Int, birthdays: Int, modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    total: Int,
+    done: Int,
+    birthdays: Int,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(modifier.fillMaxSize().padding(20.dp)) {
         Text("تنظیمات", fontSize = 25.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(20.dp))
@@ -732,29 +786,31 @@ fun SettingsScreen(total: Int, done: Int, birthdays: Int, modifier: Modifier = M
                 Text("درصد انجام: " + (if (total == 0) 0 else done * 100 / total) + "%")
                 Spacer(Modifier.height(8.dp))
                 if (total > 0) {
-                    LinearProgressIndicator(
-                        progress = { done.toFloat() / total.toFloat() },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    LinearProgressIndicator(progress = { done.toFloat() / total.toFloat() }, modifier = Modifier.fillMaxWidth())
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("تولدهای ثبت‌شده: " + birthdays)
+                Text("تولدهای ذخیره‌شده: " + birthdays)
             }
         }
-        Spacer(Modifier.height(20.dp))
-        Text("کارهای انجام‌شده هر روز به‌صورت خودکار برای روز جدید بازنشانی می‌شوند.")
         Spacer(Modifier.height(12.dp))
-        Text("اعلان تولد یک روز قبل و روز تولد فعال است.")
-        Spacer(Modifier.height(20.dp))
-        Text("نسخه 1.2.0")
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("پشتیبان آفلاین", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("از کارها، تولدها، عادت‌ها و لیست خرید یک فایل JSON روی گوشی بساز یا آن را بازیابی کن.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(onClick = onExportBackup, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Upload, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("ساخت و ذخیره پشتیبان")
+                }
+                OutlinedButton(onClick = onImportBackup, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Download, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("بازیابی از فایل")
+                }
+                Text("بازیابی اطلاعات فعلی این برنامه را با اطلاعات فایل جایگزین می‌کند.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+            }
+        }
     }
-}
-
-private fun repeatLabel(value: String): String = when (value) {
-    "weekly" -> "هفتگی"
-    "monthly" -> "ماهانه"
-    "daily" -> "روزانه"
-    else -> "یک‌بار"
 }
 
 fun loadTasks(context: Context): List<TodoItem> {
