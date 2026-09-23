@@ -119,7 +119,15 @@ class TaskNotificationReceiver : BroadcastReceiver() {
                 reminderMinute = minute?.takeIf { it in 0..59 },
                 repeat = taskRepeat,
                 category = x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی",
-                priority = x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal"
+                priority = x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal",
+                startDate = x.getOrNull(8).orEmpty(),
+                dueDate = x.getOrNull(9).orEmpty(),
+                note = x.getOrNull(10).orEmpty(),
+                tags = x.getOrNull(11).orEmpty(),
+                subtasks = x.getOrNull(12).orEmpty(),
+                location = x.getOrNull(13).orEmpty(),
+                customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" }
             )
         }.firstOrNull()
     }
