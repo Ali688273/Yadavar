@@ -33,7 +33,9 @@ data class TodoItem(
     val done: Boolean = false,
     val reminderHour: Int? = null,
     val reminderMinute: Int? = null,
-    val repeat: String = "none"
+    val repeat: String = "none",
+    val category: String = "عمومی",
+    val priority: String = "normal"
 ) {
     val hasReminder: Boolean get() = reminderHour != null && reminderMinute != null
 }
@@ -203,7 +205,9 @@ fun YadavarApp(context: Context) {
                         title = title.trim(),
                         reminderHour = hour,
                         reminderMinute = minute,
-                        repeat = repeat
+                        repeat = repeat,
+                        category = category,
+                        priority = priority
                     )
                 )
                 saveT()
@@ -217,14 +221,16 @@ fun YadavarApp(context: Context) {
         EditTaskDialog(
             task = task,
             dismiss = { editingTask = null },
-            save = { title, hour, minute, repeat ->
+            save = { title, hour, minute, repeat, category, priority ->
                 val index = tasks.indexOfFirst { it.id == task.id }
                 if (index >= 0) {
                     tasks[index] = task.copy(
                         title = title.trim(),
                         reminderHour = hour,
                         reminderMinute = minute,
-                        repeat = repeat
+                        repeat = repeat,
+                        category = category,
+                        priority = priority
                     )
                     saveT()
                 }
@@ -361,7 +367,10 @@ fun TodoScreen(
                         ) {
                             Checkbox(t.done, { toggle(t.id) })
                             Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
-                                Text(t.title, fontSize = 17.sp)
+                                Text(t.title, fontSize = 17.sp, fontWeight = if (t.priority == "high") FontWeight.Bold else FontWeight.Normal)
+                                Text(t.category + " • " + priorityLabel(t.priority),
+                                    fontSize = 12.sp,
+                                    color = if (t.priority == "high") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (t.hasReminder) {
                                     Text(
                                         "⏰ " + t.reminderHour.toString().padStart(2, '0') + ":" +
@@ -386,9 +395,11 @@ fun TodoScreen(
 fun EditTaskDialog(
     task: TodoItem,
     dismiss: () -> Unit,
-    save: (String, Int?, Int?, String) -> Unit
+    save: (String, Int?, Int?, String, String, String) -> Unit
 ) {
     var title by remember(task.id) { mutableStateOf(task.title) }
+    var category by remember(task.id) { mutableStateOf(task.category) }
+    var priority by remember(task.id) { mutableStateOf(task.priority) }
     var reminderEnabled by remember(task.id) { mutableStateOf(task.hasReminder) }
     var hour by remember(task.id) { mutableStateOf((task.reminderHour ?: 9).toString()) }
     var minute by remember(task.id) { mutableStateOf((task.reminderMinute ?: 0).toString().padStart(2, '0')) }
@@ -403,6 +414,8 @@ fun EditTaskDialog(
                     title, { title = it }, Modifier.fillMaxWidth(),
                     singleLine = true, label = { Text("عنوان کار") }
                 )
+                CategorySelector(category, { category = it })
+                PrioritySelector(priority, { priority = it })
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(reminderEnabled, { reminderEnabled = it })
                     Text("یادآوری زمان‌دار")
@@ -427,7 +440,7 @@ fun EditTaskDialog(
                 onClick = {
                     val h = hour.toIntOrNull()?.takeIf { it in 0..23 }
                     val m = minute.toIntOrNull()?.takeIf { it in 0..59 }
-                    save(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none")
+                    save(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none", category, priority)
                 },
                 enabled = title.trim().isNotEmpty() &&
                     (!reminderEnabled || (hour.toIntOrNull() in 0..23 && minute.toIntOrNull() in 0..59))
@@ -440,9 +453,11 @@ fun EditTaskDialog(
 @Composable
 fun AddTaskDialog(
     dismiss: () -> Unit,
-    add: (String, Int?, Int?, String) -> Unit
+    add: (String, Int?, Int?, String, String, String) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("عمومی") }
+    var priority by remember { mutableStateOf("normal") }
     var reminderEnabled by remember { mutableStateOf(false) }
     var hour by remember { mutableStateOf("9") }
     var minute by remember { mutableStateOf("00") }
@@ -457,6 +472,8 @@ fun AddTaskDialog(
                     title, { title = it }, Modifier.fillMaxWidth(),
                     singleLine = true, label = { Text("عنوان کار") }
                 )
+                CategorySelector(category, { category = it })
+                PrioritySelector(priority, { priority = it })
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(reminderEnabled, { reminderEnabled = it })
                     Text("یادآوری زمان‌دار")
@@ -481,7 +498,7 @@ fun AddTaskDialog(
                 onClick = {
                     val h = hour.toIntOrNull()?.takeIf { it in 0..23 }
                     val m = minute.toIntOrNull()?.takeIf { it in 0..59 }
-                    add(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none")
+                    add(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none", category, priority)
                 },
                 enabled = title.trim().isNotEmpty() &&
                     (!reminderEnabled || (hour.toIntOrNull() in 0..23 && minute.toIntOrNull() in 0..59))
@@ -511,6 +528,38 @@ fun RepeatSelector(repeat: String, onRepeatChange: (String) -> Unit) {
             label = { Text("ماهانه") }
         )
     }
+}
+
+
+
+@Composable
+fun CategorySelector(value: String, onChange: (String) -> Unit) {
+    Text("دسته‌بندی", fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("عمومی", "کار", "شخصی", "خرید").forEach { item ->
+            FilterChip(
+                selected = value == item,
+                onClick = { onChange(item) },
+                label = { Text(item) }
+            )
+        }
+    }
+}
+
+@Composable
+fun PrioritySelector(value: String, onChange: (String) -> Unit) {
+    Text("اولویت", fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        FilterChip(selected = value == "low", onClick = { onChange("low") }, label = { Text("کم") })
+        FilterChip(selected = value == "normal", onClick = { onChange("normal") }, label = { Text("عادی") })
+        FilterChip(selected = value == "high", onClick = { onChange("high") }, label = { Text("مهم") })
+    }
+}
+
+private fun priorityLabel(value: String): String = when (value) {
+    "low" -> "اولویت کم"
+    "high" -> "اولویت مهم"
+    else -> "اولویت عادی"
 }
 
 @Composable
@@ -705,7 +754,7 @@ private fun loadTasks(context: Context): List<TodoItem> {
     val shouldReset = savedDate == null || savedDate != today
 
     val list = raw.split("\n").mapNotNull { p ->
-        val x = p.split("\t", limit = 6)
+        val x = p.split("\t", limit = 8)
         if (x.size < 3) null
         else {
             val id = x[0].toIntOrNull()
@@ -716,13 +765,17 @@ private fun loadTasks(context: Context): List<TodoItem> {
                 val repeat = x.getOrNull(5)?.takeIf {
                     it == "none" || it == "daily" || it == "weekly" || it == "monthly"
                 } ?: "none"
+                val category = x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی"
+                val priority = x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal"
                 TodoItem(
                     id = id,
                     title = x[2],
                     done = if (shouldReset) false else x[1] == "1",
                     reminderHour = hour?.takeIf { it in 0..23 },
                     reminderMinute = minute?.takeIf { it in 0..59 },
-                    repeat = repeat
+                    repeat = repeat,
+                    category = category,
+                    priority = priority
                 )
             }
         }
@@ -742,7 +795,8 @@ private fun saveTasks(context: Context, list: List<TodoItem>) {
                     it.title.replace("\n", " ").replace("\t", " ") + "\t" +
                     (it.reminderHour?.toString() ?: "") + "\t" +
                     (it.reminderMinute?.toString() ?: "") + "\t" +
-                    it.repeat
+                    it.repeat + "\t" + it.category.replace("\n", " ").replace("\t", " ") +
+                    "\t" + it.priority
             }
         )
         .putString("tasks_date", currentTaskDate())
