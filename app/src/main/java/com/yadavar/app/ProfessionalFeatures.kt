@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.DayOfWeek
+import java.time.temporal.ChronoUnit
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -68,7 +69,7 @@ fun ProfessionalScreen(
         Text("امروز: \${jalaliDate(today)} • عقب‌افتاده: \$overdue", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         ScrollableTabRow(selectedTabIndex = section, edgePadding = 0.dp) {
-            listOf("امروز", "تقویم", "همه کارها", "عادت‌ها", "تمرکز", "ایده‌ها").forEachIndexed { i, title ->
+            listOf("امروز", "تقویم", "همه کارها", "عادت‌ها", "تمرکز", "آمار", "ابزارها").forEachIndexed { i, title ->
                 Tab(section == i, { section = i }, text = { Text(title) })
             }
         }
@@ -98,9 +99,10 @@ fun ProfessionalScreen(
                     }
                 }
             }
-            3 -> HabitPanel()
+            3 -> HabitPanel(context)
             4 -> FocusPanel()
-            else -> IdeasPanel(context)
+            5 -> StatsPanel(tasks)
+            else -> ToolsPanel(context)
         }
     }
     if (editing != null) {
@@ -142,7 +144,8 @@ private fun CalendarPlanner(tasks: List<TodoItem>, selected: LocalDate, onSelect
     val dates = when (mode) {
         "day" -> listOf(selected)
         "week" -> {
-            val start = selected.with(DayOfWeek.SATURDAY)
+            val delta = (selected.dayOfWeek.value - DayOfWeek.SATURDAY.value + 7) % 7
+            val start = selected.minusDays(delta.toLong())
             (0..6).map { start.plusDays(it.toLong()) }
         }
         else -> {
@@ -249,18 +252,36 @@ private fun AdvancedTaskDialog(task: TodoItem, dismiss: () -> Unit, save: (TodoI
 }
 
 @Composable
-private fun HabitPanel() {
-    val habits = remember { mutableStateMapOf<String, Int>() }
+private fun HabitPanel(context: Context) {
+    val prefs = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE)
+    var habits by remember { mutableStateOf(loadHabits(prefs)) }
     var newHabit by remember { mutableStateOf("") }
-    Column {
-        Text("عادت‌ها و Streak", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        OutlinedTextField(newHabit, { newHabit = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("نام عادت") })
-        Button(onClick = { if (newHabit.isNotBlank()) { habits[newHabit.trim()] = habits[newHabit.trim()] ?: 0; newHabit = "" } }) { Text("افزودن عادت") }
-        habits.forEach { (name, streak) ->
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item {
+            Text("عادت‌ها و Streak", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("ذخیره‌سازی کاملاً آفلاین است.")
+            OutlinedTextField(newHabit, { newHabit = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("نام عادت") })
+            Button(onClick = {
+                val n = newHabit.trim()
+                if (n.isNotEmpty() && !habits.containsKey(n)) {
+                    habits = habits + (n to 0)
+                    saveHabits(prefs, habits)
+                    newHabit = ""
+                }
+            }) { Text("افزودن عادت") }
+        }
+        items(habits.toList(), key = { it.first }) { pair ->
+            val name = pair.first
+            val streak = pair.second
+            Card(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(name, Modifier.weight(1f)); Text("🔥 \$streak"); Spacer(Modifier.width(8.dp))
-                    Button(onClick = { habits[name] = streak + 1 }) { Text("امروز") }
+                    Text(name, Modifier.weight(1f))
+                    Text("🔥 $streak")
+                    Spacer(Modifier.width(6.dp))
+                    Button(onClick = {
+                        habits = habits + (name to streak + 1)
+                        saveHabits(prefs, habits)
+                    }) { Text("امروز") }
                 }
             }
         }
@@ -322,4 +343,110 @@ private fun gregorianToJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> 
     val jm = if (days < 186) 1 + days / 31 else 7 + (days - 186) / 30
     val jd = 1 + if (days < 186) days % 31 else (days - 186) % 30
     return Triple(jy, jm, jd)
+}
+
+@Composable
+private fun StatsPanel(tasks: List<TodoItem>) {
+    val total = tasks.size
+    val done = tasks.count { it.done }
+    val overdue = tasks.count { !it.done && parseDate(it.dueDate)?.isBefore(LocalDate.now()) == true }
+    val high = tasks.count { it.priority == "high" }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { Text("آمار حرفه‌ای", fontSize = 21.sp, fontWeight = FontWeight.Bold) }
+        item { StatRow("کل کارها", total) }
+        item { StatRow("انجام‌شده", done) }
+        item { StatRow("باز", total - done) }
+        item { StatRow("عقب‌افتاده", overdue) }
+        item { StatRow("مهم", high) }
+        item { StatRow("درصد انجام", if (total == 0) 0 else done * 100 / total, "٪") }
+    }
+}
+@Composable
+private fun StatRow(title: String, value: Int, suffix: String = "") {
+    Card(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(title)
+            Text("$value$suffix", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+@Composable
+private fun ToolsPanel(context: Context) {
+    var shopping by remember { mutableStateOf(loadShopping(context)) }
+    var item by remember { mutableStateOf("") }
+    var countdownTitle by remember { mutableStateOf("") }
+    var countdownDate by remember { mutableStateOf("") }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item {
+            Text("ابزارهای رایگان", fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Text("بدون سرور، اشتراک یا خرید درون‌برنامه‌ای.")
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("لیست خرید", fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(item, { item = it }, Modifier.weight(1f), singleLine = true, label = { Text("قلم خرید") })
+                        Button(onClick = {
+                            if (item.isNotBlank()) {
+                                shopping = shopping + item.trim()
+                                saveShopping(context, shopping)
+                                item = ""
+                            }
+                        }) { Text("+") }
+                    }
+                    shopping.forEachIndexed { index, value ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(value, Modifier.weight(1f))
+                            IconButton(onClick = {
+                                shopping = shopping.toMutableList().also { it.removeAt(index) }
+                                saveShopping(context, shopping)
+                            }) { Icon(Icons.Default.Delete, "حذف") }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("شمارش معکوس", fontWeight = FontWeight.Bold)
+                    OutlinedTextField(countdownTitle, { countdownTitle = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("عنوان") })
+                    OutlinedTextField(countdownDate, { countdownDate = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("تاریخ YYYY-MM-DD") })
+                    parseDate(countdownDate)?.let {
+                        val days = ChronoUnit.DAYS.between(LocalDate.now(), it)
+                        Text(if (days >= 0) "$countdownTitle: $days روز باقی‌مانده" else "$countdownTitle: " + (-days) + " روز گذشته")
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("پشتیبان سریع", fontWeight = FontWeight.Bold)
+                    Text("خلاصه داده‌ها را برای نگهداری یا ارسال کپی کن.")
+                    Button(onClick = {
+                        val body = "یادآور\nکارها: " + loadTasks(context).size + "\nتولدها: " + loadBirthdays(context).size
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, body)
+                        }, "اشتراک‌گذاری"))
+                    }) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(6.dp)); Text("اشتراک خلاصه") }
+                }
+            }
+        }
+    }
+}
+private fun loadHabits(prefs: android.content.SharedPreferences): Map<String, Int> =
+    prefs.getString("habits", "").orEmpty().split("\n").mapNotNull {
+        val x = it.split("\t", limit = 2)
+        if (x.size == 2) x[0] to (x[1].toIntOrNull() ?: 0) else null
+    }.toMap()
+private fun saveHabits(prefs: android.content.SharedPreferences, habits: Map<String, Int>) {
+    prefs.edit().putString("habits", habits.entries.joinToString("\n") { it.key.replace("\t", " ") + "\t" + it.value }).apply()
+}
+private fun loadShopping(context: Context): List<String> =
+    context.getSharedPreferences("yadavar_data", 0).getString("shopping", "").orEmpty().split("\n").filter { it.isNotBlank() }
+private fun saveShopping(context: Context, values: List<String>) {
+    context.getSharedPreferences("yadavar_data", 0).edit().putString("shopping", values.joinToString("\n")).apply()
 }
