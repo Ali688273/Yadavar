@@ -197,7 +197,7 @@ fun YadavarApp(context: Context) {
     }
 
     if (addTask) {
-        AddTaskDialog(dismiss = { addTask = false }) { title, hour, minute, repeat ->
+        AddTaskDialog(dismiss = { addTask = false }) { title, hour, minute, repeat, category, priority ->
             if (title.trim().isNotEmpty()) {
                 tasks.add(
                     TodoItem(
