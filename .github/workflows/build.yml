@@ -9,6 +9,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,3 +43,9 @@ jobs:
         with:
           name: yadavar-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Disable workflow after successful build
+        if: success() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow disable "Build Yadavar" --repo "${{ github.repository }}"
