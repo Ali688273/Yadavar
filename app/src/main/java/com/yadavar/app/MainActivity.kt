@@ -104,10 +104,10 @@ fun YadavarApp(context: Context) {
         },
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Default.Checklist, "کارها") }, { Text("کارها") })
-                NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Default.Cake, "تولدها") }, { Text("تولدها") })
-                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Default.AutoAwesome, "حرفه‌ای") }, { Text("حرفه‌ای") })
-                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Default.Settings, "تنظیمات") }, { Text("تنظیمات") })
+                NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.Checklist, "کارها") }, label = { Text("کارها") })
+                NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.Cake, "تولدها") }, label = { Text("تولدها") })
+                NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.AutoAwesome, "حرفه‌ای") }, label = { Text("حرفه‌ای") })
+                NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.Settings, "تنظیمات") }, label = { Text("تنظیمات") })
             }
         },
         floatingActionButton = {
@@ -729,7 +729,7 @@ fun SettingsScreen(total: Int, done: Int, birthdays: Int, modifier: Modifier = M
                 Text("کل کارها: " + total)
                 Text("انجام‌شده: " + done)
                 Text("باقی‌مانده: " + (total - done))
-                Text("درصد انجام: " + if (total == 0) 0 else (done * 100 / total) + "%")
+                Text("درصد انجام: " + (if (total == 0) 0 else done * 100 / total) + "%")
                 Spacer(Modifier.height(8.dp))
                 if (total > 0) {
                     LinearProgressIndicator(
@@ -757,7 +757,7 @@ private fun repeatLabel(value: String): String = when (value) {
     else -> "یک‌بار"
 }
 
-private fun loadTasks(context: Context): List<TodoItem> {
+fun loadTasks(context: Context): List<TodoItem> {
     val prefs = context.getSharedPreferences("yadavar_data", 0)
     val raw = prefs.getString("tasks", null) ?: return emptyList()
     val savedDate = prefs.getString("tasks_date", null)
@@ -825,7 +825,7 @@ private fun saveTasks(context: Context, list: List<TodoItem>) {
         .apply()
 }
 
-private fun loadBirthdays(context: Context): List<StoredBirthday> {
+fun loadBirthdays(context: Context): List<StoredBirthday> {
     val raw = context.getSharedPreferences("yadavar_data", 0)
         .getString("birthdays", null) ?: return emptyList()
 
