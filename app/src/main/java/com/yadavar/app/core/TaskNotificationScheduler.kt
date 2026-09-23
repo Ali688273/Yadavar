@@ -55,6 +55,9 @@ object TaskNotificationScheduler {
             "custom" -> {
                 val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
                 if (base != null) {
+                    next.set(Calendar.YEAR, base.year)
+                    next.set(Calendar.MONTH, base.monthValue - 1)
+                    next.set(Calendar.DAY_OF_MONTH, base.dayOfMonth)
                     val every = task.customEvery.coerceAtLeast(1)
                     while (next.timeInMillis <= now.timeInMillis) {
                         when (task.customUnit.lowercase()) {
