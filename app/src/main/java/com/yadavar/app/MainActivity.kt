@@ -774,7 +774,7 @@ private fun loadTasks(context: Context): List<TodoItem> {
                 val hour = x.getOrNull(3)?.toIntOrNull()
                 val minute = x.getOrNull(4)?.toIntOrNull()
                 val repeat = x.getOrNull(5)?.takeIf {
-                    it == "none" || it == "daily" || it == "weekly" || it == "monthly"
+                    it == "none" || it == "daily" || it == "weekly" || it == "monthly" || it == "yearly" || it == "custom"
                 } ?: "none"
                 val category = x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی"
                 val priority = x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal"
