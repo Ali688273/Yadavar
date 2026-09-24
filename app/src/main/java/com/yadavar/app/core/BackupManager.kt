@@ -8,7 +8,7 @@ import com.yadavar.app.TodoItem
 
 object BackupManager {
 
-    private const val BACKUP_VERSION = 1
+    private const val BACKUP_VERSION = 2
 
     data class BackupData(
         val tasks: List<TodoItem>,
@@ -42,7 +42,8 @@ object BackupManager {
                 .put("subtasks", task.subtasks)
                 .put("location", task.location)
                 .put("customEvery", task.customEvery)
-                .put("customUnit", task.customUnit))
+                .put("customUnit", task.customUnit)
+                .put("reminders", JSONArray(TaskReminderCodec.encode(if (task.reminders.isNotEmpty()) task.reminders else if (task.hasReminder) listOf(TaskReminder(task.reminderHour!!, task.reminderMinute!!)) else emptyList())))
         }
 
         val birthdays = JSONArray()
@@ -89,7 +90,8 @@ object BackupManager {
                 it.repeat + "\t" + clean(it.category) + "\t" + it.priority + "\t" +
                 it.startDate + "\t" + it.dueDate + "\t" + clean(it.note) + "\t" +
                 clean(it.tags) + "\t" + clean(it.subtasks) + "\t" + clean(it.location) + "\t" +
-                it.customEvery.coerceAtLeast(1) + "\t" + clean(it.customUnit)
+                it.customEvery.coerceAtLeast(1) + "\t" + clean(it.customUnit) + "\t" +
+                TaskReminderCodec.encode(if (it.reminders.isNotEmpty()) it.reminders else if (it.hasReminder) listOf(TaskReminder(it.reminderHour!!, it.reminderMinute!!)) else emptyList())
         })
         editor.putString("tasks_date", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()))
 
@@ -111,7 +113,8 @@ object BackupManager {
         if (root.optString("format") != "yadavar-backup") {
             error("این فایل، پشتیبان معتبر یادآور نیست.")
         }
-        if (root.optInt("version", 0) != BACKUP_VERSION) {
+        val version = root.optInt("version", 0)
+        if (version !in 1..BACKUP_VERSION) {
             error("نسخه پشتیبان با این نسخه از برنامه سازگار نیست.")
         }
 
@@ -142,7 +145,10 @@ object BackupManager {
                 subtasks = o.optString("subtasks"),
                 location = o.optString("location"),
                 customEvery = o.optInt("customEvery", 1).coerceAtLeast(1),
-                customUnit = o.optString("customUnit", "day").ifBlank { "day" }
+                customUnit = o.optString("customUnit", "day").ifBlank { "day" },
+                reminders = decodeBackupReminders(o.optJSONArray("reminders")).ifEmpty {
+                    if (hour != null && minute != null) listOf(TaskReminder(hour, minute)) else emptyList()
+                }
             )
         }
 
@@ -184,10 +190,23 @@ object BackupManager {
         )
     }
 
+    private fun decodeBackupReminders(array: JSONArray?): List<TaskReminder> {
+        if (array == null) return emptyList()
+        return buildList {
+            for (i in 0 until array.length()) {
+                val o = array.optJSONObject(i) ?: continue
+                val h = o.optInt("hour", -1)
+                val m = o.optInt("minute", -1)
+                val r = TaskReminder(h, m)
+                if (r.isValid()) add(r)
+            }
+        }.distinctBy { it.hour * 60 + it.minute }.take(8)
+    }
+
     private fun loadTasksFromPrefs(prefs: android.content.SharedPreferences): List<TodoItem> {
         val raw = prefs.getString("tasks", null) ?: return emptyList()
         return raw.split("\n").mapNotNull { row ->
-            val x = row.split("\t", limit = 16)
+            val x = row.split("\t", limit = 17)
             if (x.size < 3) return@mapNotNull null
             val id = x[0].toIntOrNull() ?: return@mapNotNull null
             val hour = x.getOrNull(3)?.toIntOrNull()?.takeIf { it in 0..23 }
@@ -208,7 +227,10 @@ object BackupManager {
                 subtasks = x.getOrNull(12).orEmpty(),
                 location = x.getOrNull(13).orEmpty(),
                 customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" }
+                customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" },
+                reminders = TaskReminderCodec.decode(x.getOrNull(16)).ifEmpty {
+                    if (hour != null && minute != null) listOf(TaskReminder(hour, minute)) else emptyList()
+                }
             )
         }
     }
