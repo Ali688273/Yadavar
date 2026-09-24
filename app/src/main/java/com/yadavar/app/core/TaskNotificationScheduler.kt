@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter
 object TaskNotificationScheduler {
     private const val BASE = 300000
     private const val SNOOZE_BASE = 400000
+    private const val MAX_REMINDERS = 8
 
     fun scheduleAll(context: Context, tasks: List<com.yadavar.app.TodoItem>) {
         tasks.forEach { scheduleTask(context, it) }
@@ -19,12 +20,33 @@ object TaskNotificationScheduler {
 
     fun scheduleTask(context: Context, task: com.yadavar.app.TodoItem) {
         cancelTask(context, task.id)
-        if (!task.hasReminder) return
 
-        val hour = task.reminderHour ?: return
-        val minute = task.reminderMinute ?: return
-        if (hour !in 0..23 || minute !in 0..59) return
+        val reminders = if (task.reminders.isNotEmpty()) {
+            task.reminders.take(MAX_REMINDERS)
+        } else if (task.hasReminder) {
+            listOf(TaskReminder(task.reminderHour ?: return, task.reminderMinute ?: return))
+        } else {
+            emptyList()
+        }
+        if (reminders.isEmpty()) return
 
+        reminders.forEachIndexed { index, reminder ->
+            val next = nextTrigger(task, reminder.hour, reminder.minute) ?: return@forEachIndexed
+            setAlarm(
+                context = context,
+                taskId = task.id,
+                title = task.title,
+                repeat = task.repeat,
+                triggerAt = next,
+                requestCode = BASE + task.id * MAX_REMINDERS + index,
+                snoozed = false,
+                reminderIndex = index
+            )
+        }
+    }
+
+    private fun nextTrigger(task: com.yadavar.app.TodoItem, hour: Int, minute: Int): Long? {
+        if (hour !in 0..23 || minute !in 0..59) return null
         val now = Calendar.getInstance()
         val next = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
@@ -34,59 +56,46 @@ object TaskNotificationScheduler {
         }
 
         when (task.repeat) {
-            "weekly" -> {
-                while (next.timeInMillis <= now.timeInMillis) {
-                    next.add(Calendar.WEEK_OF_YEAR, 1)
-                }
-            }
-            "monthly" -> {
-                while (next.timeInMillis <= now.timeInMillis) {
-                    next.add(Calendar.MONTH, 1)
-                }
-            }
+            "weekly" -> while (next.timeInMillis <= now.timeInMillis) next.add(Calendar.WEEK_OF_YEAR, 1)
+            "monthly" -> while (next.timeInMillis <= now.timeInMillis) next.add(Calendar.MONTH, 1)
             "yearly" -> {
-                val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
-                if (base != null) {
-                    next.set(Calendar.MONTH, base.monthValue - 1)
-                    next.set(Calendar.DAY_OF_MONTH, base.dayOfMonth)
-                    while (next.timeInMillis <= now.timeInMillis) next.add(Calendar.YEAR, 1)
-                } else return
+                val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() ?: return null
+                next.set(Calendar.MONTH, base.monthValue - 1)
+                next.set(Calendar.DAY_OF_MONTH, base.dayOfMonth)
+                while (next.timeInMillis <= now.timeInMillis) next.add(Calendar.YEAR, 1)
             }
             "custom" -> {
-                val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull()
-                if (base != null) {
-                    next.set(Calendar.YEAR, base.year)
-                    next.set(Calendar.MONTH, base.monthValue - 1)
-                    next.set(Calendar.DAY_OF_MONTH, base.dayOfMonth)
-                    val every = task.customEvery.coerceAtLeast(1)
-                    while (next.timeInMillis <= now.timeInMillis) {
-                        when (task.customUnit.lowercase()) {
-                            "week", "هفته", "هفتگی" -> next.add(Calendar.WEEK_OF_YEAR, every)
-                            "month", "ماه", "ماهانه" -> next.add(Calendar.MONTH, every)
-                            else -> next.add(Calendar.DAY_OF_YEAR, every)
-                        }
+                val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() ?: return null
+                next.set(Calendar.YEAR, base.year)
+                next.set(Calendar.MONTH, base.monthValue - 1)
+                next.set(Calendar.DAY_OF_MONTH, base.dayOfMonth)
+                val every = task.customEvery.coerceAtLeast(1)
+                while (next.timeInMillis <= now.timeInMillis) {
+                    when (task.customUnit.lowercase()) {
+                        "week", "هفته", "هفتگی" -> next.add(Calendar.WEEK_OF_YEAR, every)
+                        "month", "ماه", "ماهانه" -> next.add(Calendar.MONTH, every)
+                        else -> next.add(Calendar.DAY_OF_YEAR, every)
                     }
-                } else return
+                }
             }
-            "daily" -> {
-                if (next.timeInMillis <= now.timeInMillis) {
+            "daily" -> if (next.timeInMillis <= now.timeInMillis) next.add(Calendar.DAY_OF_YEAR, 1)
+            "weekdays" -> {
+                while (next.timeInMillis <= now.timeInMillis ||
+                    next.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY ||
+                    next.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY) {
                     next.add(Calendar.DAY_OF_YEAR, 1)
                 }
             }
-            else -> {
-                if (next.timeInMillis <= now.timeInMillis) return
+            "weekends" -> {
+                while (next.timeInMillis <= now.timeInMillis ||
+                    (next.get(Calendar.DAY_OF_WEEK) != Calendar.SATURDAY &&
+                     next.get(Calendar.DAY_OF_WEEK) != Calendar.FRIDAY)) {
+                    next.add(Calendar.DAY_OF_YEAR, 1)
+                }
             }
+            else -> if (next.timeInMillis <= now.timeInMillis) return null
         }
-
-        setAlarm(
-            context = context,
-            taskId = task.id,
-            title = task.title,
-            repeat = task.repeat,
-            triggerAt = next.timeInMillis,
-            requestCode = BASE + task.id,
-            snoozed = false
-        )
+        return next.timeInMillis
     }
 
     fun scheduleSnooze(
@@ -113,7 +122,9 @@ object TaskNotificationScheduler {
 
     fun cancelTask(context: Context, id: Int) {
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        cancelAlarm(context, alarm, BASE + id)
+        repeat(MAX_REMINDERS) { index ->
+            cancelAlarm(context, alarm, BASE + id * MAX_REMINDERS + index)
+        }
         cancelAlarm(context, alarm, SNOOZE_BASE + id)
     }
 
@@ -124,13 +135,15 @@ object TaskNotificationScheduler {
         repeat: String,
         triggerAt: Long,
         requestCode: Int,
-        snoozed: Boolean
+        snoozed: Boolean,
+        reminderIndex: Int = 0
     ) {
         val intent = Intent(context, TaskNotificationReceiver::class.java).apply {
             putExtra(TaskNotificationReceiver.EXTRA_ID, taskId)
             putExtra(TaskNotificationReceiver.EXTRA_TITLE, title)
             putExtra(TaskNotificationReceiver.EXTRA_REPEAT, repeat)
             putExtra(TaskNotificationReceiver.EXTRA_SNOOZED, snoozed)
+            putExtra(TaskNotificationReceiver.EXTRA_REMINDER_INDEX, reminderIndex)
         }
 
         val pending = PendingIntent.getBroadcast(
