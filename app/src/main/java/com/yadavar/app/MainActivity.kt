@@ -639,6 +639,16 @@ fun RepeatSelector(repeat: String, onRepeatChange: (String) -> Unit) {
             onClick = { onRepeatChange("monthly") },
             label = { Text("ماهانه") }
         )
+        FilterChip(
+            selected = repeat == "weekdays",
+            onClick = { onRepeatChange("weekdays") },
+            label = { Text("روزهای کاری") }
+        )
+        FilterChip(
+            selected = repeat == "weekends",
+            onClick = { onRepeatChange("weekends") },
+            label = { Text("آخرهفته") }
+        )
     }
 }
 
@@ -884,7 +894,7 @@ fun loadTasks(context: Context): List<TodoItem> {
                 val hour = x.getOrNull(3)?.toIntOrNull()
                 val minute = x.getOrNull(4)?.toIntOrNull()
                 val repeat = x.getOrNull(5)?.takeIf {
-                    it == "none" || it == "daily" || it == "weekly" || it == "monthly" || it == "yearly" || it == "custom"
+                    it == "none" || it == "daily" || it == "weekly" || it == "monthly" || it == "yearly" || it == "custom" || it == "weekdays" || it == "weekends"
                 } ?: "none"
                 val category = x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی"
                 val priority = x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal"
