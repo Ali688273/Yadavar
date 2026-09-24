@@ -986,6 +986,8 @@ private fun repeatLabel(value: String): String = when (value) {
     "daily" -> "روزانه"
     "yearly" -> "سالانه"
     "custom" -> "سفارشی"
+    "weekdays" -> "روزهای کاری"
+    "weekends" -> "آخرهفته"
     else -> "یک‌بار"
 }
 
