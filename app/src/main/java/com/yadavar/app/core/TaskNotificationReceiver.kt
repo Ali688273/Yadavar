@@ -105,7 +105,7 @@ class TaskNotificationReceiver : BroadcastReceiver() {
             .split("\n")
             .asSequence()
             .mapNotNull { row ->
-                val x = row.split("\t", limit = 16)
+                val x = row.split("\t", limit = 17)
                 if (x.size < 3) return@mapNotNull null
 
                 val taskId = x[0].toIntOrNull() ?: return@mapNotNull null
@@ -133,7 +133,12 @@ class TaskNotificationReceiver : BroadcastReceiver() {
                     subtasks = x.getOrNull(12).orEmpty(),
                     location = x.getOrNull(13).orEmpty(),
                     customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                    customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" }
+                    customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" },
+                    reminders = TaskReminderCodec.decode(x.getOrNull(16)).ifEmpty {
+                        val h = hour?.takeIf { it in 0..23 }
+                        val m = minute?.takeIf { it in 0..59 }
+                        if (h != null && m != null) listOf(TaskReminder(h, m)) else emptyList()
+                    }
                 )
             }
             .firstOrNull()
@@ -145,6 +150,7 @@ class TaskNotificationReceiver : BroadcastReceiver() {
         const val EXTRA_TITLE = "task_title"
         const val EXTRA_REPEAT = "task_repeat"
         const val EXTRA_SNOOZED = "task_snoozed"
+        const val EXTRA_REMINDER_INDEX = "task_reminder_index"
         const val EXTRA_ACTION = "task_action"
         const val ACTION_SNOOZE = "snooze"
     }
