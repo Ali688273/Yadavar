@@ -586,7 +586,6 @@ fun AddTaskDialog(
 }
 
 @Composable
-@Composable
 fun ReminderEditor(
     reminders: List<TaskReminder>,
     onChange: (List<TaskReminder>) -> Unit
