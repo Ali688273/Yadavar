@@ -27,6 +27,8 @@ import com.yadavar.app.core.BirthdayNotificationScheduler
 import com.yadavar.app.core.BirthdayReminderEngine
 import com.yadavar.app.core.StoredBirthday
 import com.yadavar.app.core.TaskNotificationScheduler
+import com.yadavar.app.core.TaskReminder
+import com.yadavar.app.core.TaskReminderCodec
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,9 +49,10 @@ data class TodoItem(
     val subtasks: String = "",
     val location: String = "",
     val customEvery: Int = 1,
-    val customUnit: String = "day"
+    val customUnit: String = "day",
+    val reminders: List<TaskReminder> = emptyList()
 ) {
-    val hasReminder: Boolean get() = reminderHour != null && reminderMinute != null
+    val hasReminder: Boolean get() = reminders.isNotEmpty() || (reminderHour != null && reminderMinute != null)
 }
 
 class MainActivity : ComponentActivity() {
@@ -256,7 +259,7 @@ fun YadavarApp(context: Context) {
     }
 
     if (addTask) {
-        AddTaskDialog(dismiss = { addTask = false }) { title, hour, minute, repeat, category, priority ->
+        AddTaskDialog(dismiss = { addTask = false }) { title, hour, minute, repeat, category, priority, reminders ->
             if (title.trim().isNotEmpty()) {
                 tasks.add(
                     TodoItem(
@@ -266,7 +269,8 @@ fun YadavarApp(context: Context) {
                         reminderMinute = minute,
                         repeat = repeat,
                         category = category,
-                        priority = priority
+                        priority = priority,
+                        reminders = reminders
                     )
                 )
                 saveT()
@@ -280,7 +284,7 @@ fun YadavarApp(context: Context) {
         EditTaskDialog(
             task = task,
             dismiss = { editingTask = null },
-            save = { title, hour, minute, repeat, category, priority ->
+            save = { title, hour, minute, repeat, category, priority, reminders ->
                 val index = tasks.indexOfFirst { it.id == task.id }
                 if (index >= 0) {
                     tasks[index] = task.copy(
@@ -289,7 +293,8 @@ fun YadavarApp(context: Context) {
                         reminderMinute = minute,
                         repeat = repeat,
                         category = category,
-                        priority = priority
+                        priority = priority,
+                        reminders = reminders
                     )
                     saveT()
                 }
@@ -431,10 +436,14 @@ fun TodoScreen(
                                     fontSize = 12.sp,
                                     color = if (t.priority == "high") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (t.hasReminder) {
+                                    val reminderText = if (t.reminders.isNotEmpty()) {
+                                        t.reminders.joinToString("، ") { it.label() }
+                                    } else {
+                                        t.reminderHour.toString().padStart(2, '0') + ":" +
+                                            t.reminderMinute.toString().padStart(2, '0')
+                                    }
                                     Text(
-                                        "⏰ " + t.reminderHour.toString().padStart(2, '0') + ":" +
-                                            t.reminderMinute.toString().padStart(2, '0') +
-                                            " • " + repeatLabel(t.repeat),
+                                        "⏰ " + reminderText + " • " + repeatLabel(t.repeat),
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -454,7 +463,7 @@ fun TodoScreen(
 fun EditTaskDialog(
     task: TodoItem,
     dismiss: () -> Unit,
-    save: (String, Int?, Int?, String, String, String) -> Unit
+    save: (String, Int?, Int?, String, String, String, List<TaskReminder>) -> Unit
 ) {
     var title by remember(task.id) { mutableStateOf(task.title) }
     var category by remember(task.id) { mutableStateOf(task.category) }
@@ -463,6 +472,13 @@ fun EditTaskDialog(
     var hour by remember(task.id) { mutableStateOf((task.reminderHour ?: 9).toString()) }
     var minute by remember(task.id) { mutableStateOf((task.reminderMinute ?: 0).toString().padStart(2, '0')) }
     var repeat by remember(task.id) { mutableStateOf(task.repeat) }
+    var reminders by remember(task.id) {
+        mutableStateOf(
+            if (task.reminders.isNotEmpty()) task.reminders
+            else if (task.hasReminder) listOf(TaskReminder(task.reminderHour ?: 9, task.reminderMinute ?: 0))
+            else emptyList()
+        )
+    }
 
     AlertDialog(
         onDismissRequest = dismiss,
@@ -499,7 +515,7 @@ fun EditTaskDialog(
                 onClick = {
                     val h = hour.toIntOrNull()?.takeIf { it in 0..23 }
                     val m = minute.toIntOrNull()?.takeIf { it in 0..59 }
-                    save(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none", category, priority)
+                    save(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none", category, priority, if (reminderEnabled) reminders else emptyList())
                 },
                 enabled = title.trim().isNotEmpty() &&
                     (!reminderEnabled || (hour.toIntOrNull() in 0..23 && minute.toIntOrNull() in 0..59))
@@ -512,7 +528,7 @@ fun EditTaskDialog(
 @Composable
 fun AddTaskDialog(
     dismiss: () -> Unit,
-    add: (String, Int?, Int?, String, String, String) -> Unit
+    add: (String, Int?, Int?, String, String, String, List<TaskReminder>) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("عمومی") }
@@ -521,6 +537,7 @@ fun AddTaskDialog(
     var hour by remember { mutableStateOf("9") }
     var minute by remember { mutableStateOf("00") }
     var repeat by remember { mutableStateOf("daily") }
+    var reminders by remember { mutableStateOf(listOf<TaskReminder>()) }
 
     AlertDialog(
         onDismissRequest = dismiss,
@@ -538,6 +555,7 @@ fun AddTaskDialog(
                     Text("یادآوری زمان‌دار")
                 }
                 if (reminderEnabled) {
+                    ReminderEditor(reminders) { reminders = it }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             hour, { hour = it.filter(Char::isDigit).take(2) },
@@ -557,7 +575,7 @@ fun AddTaskDialog(
                 onClick = {
                     val h = hour.toIntOrNull()?.takeIf { it in 0..23 }
                     val m = minute.toIntOrNull()?.takeIf { it in 0..59 }
-                    add(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none", category, priority)
+                    add(title, if (reminderEnabled) h else null, if (reminderEnabled) m else null, if (reminderEnabled) repeat else "none", category, priority, if (reminderEnabled) reminders else emptyList())
                 },
                 enabled = title.trim().isNotEmpty() &&
                     (!reminderEnabled || (hour.toIntOrNull() in 0..23 && minute.toIntOrNull() in 0..59))
@@ -565,6 +583,41 @@ fun AddTaskDialog(
         },
         dismissButton = { TextButton(dismiss) { Text("انصراف") } }
     )
+}
+
+@Composable
+@Composable
+fun ReminderEditor(
+    reminders: List<TaskReminder>,
+    onChange: (List<TaskReminder>) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("چند زمان یادآوری (حداکثر ۸)", fontWeight = FontWeight.Bold)
+        reminders.forEachIndexed { index, r ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(r.label(), Modifier.weight(1f))
+                IconButton(onClick = {
+                    onChange(reminders.toMutableList().also { it.removeAt(index) })
+                }) { Icon(Icons.Default.Delete, "حذف زمان") }
+            }
+        }
+        var newHour by remember { mutableStateOf("09") }
+        var newMinute by remember { mutableStateOf("00") }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            OutlinedTextField(newHour, { newHour = it.filter(Char::isDigit).take(2) }, Modifier.weight(1f), singleLine = true, label = { Text("ساعت") })
+            OutlinedTextField(newMinute, { newMinute = it.filter(Char::isDigit).take(2) }, Modifier.weight(1f), singleLine = true, label = { Text("دقیقه") })
+            OutlinedButton(
+                onClick = {
+                    val h = newHour.toIntOrNull()
+                    val m = newMinute.toIntOrNull()
+                    if (h != null && m != null && h in 0..23 && m in 0..59 && reminders.none { it.hour == h && it.minute == m }) {
+                        onChange((reminders + TaskReminder(h, m)).sortedBy { it.hour * 60 + it.minute }.take(8))
+                    }
+                },
+                enabled = reminders.size < 8
+            ) { Text("+") }
+        }
+    }
 }
 
 @Composable
@@ -822,7 +875,7 @@ fun loadTasks(context: Context): List<TodoItem> {
     val shouldReset = savedDate == null || savedDate != today
 
     val list = raw.split("\n").mapNotNull { p ->
-        val x = p.split("\t", limit = 16)
+        val x = p.split("\t", limit = 17)
         if (x.size < 3) null
         else {
             val id = x[0].toIntOrNull()
@@ -851,7 +904,12 @@ fun loadTasks(context: Context): List<TodoItem> {
                     subtasks = x.getOrNull(12).orEmpty(),
                     location = x.getOrNull(13).orEmpty(),
                     customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                    customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" }
+                    customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" },
+                    reminders = TaskReminderCodec.decode(x.getOrNull(16)).ifEmpty {
+                        val h = hour?.takeIf { it in 0..23 }
+                        val m = minute?.takeIf { it in 0..59 }
+                        if (h != null && m != null) listOf(TaskReminder(h, m)) else emptyList()
+                    }
                 )
             }
         }
@@ -875,7 +933,8 @@ private fun saveTasks(context: Context, list: List<TodoItem>) {
                     "\t" + it.priority + "\t" + it.startDate + "\t" + it.dueDate + "\t" +
                     it.note.replace("\n", " ").replace("\t", " ") + "\t" + it.tags.replace("\n", " ").replace("\t", " ") + "\t" +
                     it.subtasks.replace("\n", " ").replace("\t", " ") + "\t" + it.location.replace("\n", " ").replace("\t", " ") + "\t" +
-                    it.customEvery + "\t" + it.customUnit
+                    it.customEvery + "\t" + it.customUnit + "\t" +
+                    TaskReminderCodec.encode(if (it.reminders.isNotEmpty()) it.reminders else if (it.hasReminder) listOf(TaskReminder(it.reminderHour!!, it.reminderMinute!!)) else emptyList())
             }
         )
         .putString("tasks_date", currentTaskDate())
