@@ -43,7 +43,7 @@ object BackupManager {
                 .put("location", task.location)
                 .put("customEvery", task.customEvery)
                 .put("customUnit", task.customUnit)
-                .put("reminders", JSONArray(TaskReminderCodec.encode(if (task.reminders.isNotEmpty()) task.reminders else if (task.hasReminder) listOf(TaskReminder(task.reminderHour!!, task.reminderMinute!!)) else emptyList())))
+                .put("reminders", JSONArray(TaskReminderCodec.encode(if (task.reminders.isNotEmpty()) task.reminders else if (task.hasReminder) listOf(TaskReminder(task.reminderHour!!, task.reminderMinute!!)) else emptyList()))))
         }
 
         val birthdays = JSONArray()
