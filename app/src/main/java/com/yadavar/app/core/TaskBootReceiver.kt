@@ -12,7 +12,7 @@ class TaskBootReceiver : BroadcastReceiver() {
             .getString("tasks", null) ?: return
 
         val tasks = raw.split("\n").mapNotNull { row ->
-            val x = row.split("\t", limit = 16)
+            val x = row.split("\t", limit = 17)
             if (x.size < 3) null else {
                 val id = x[0].toIntOrNull()
                 val hour = x.getOrNull(3)?.toIntOrNull()
@@ -32,7 +32,12 @@ class TaskBootReceiver : BroadcastReceiver() {
                     x.getOrNull(12).orEmpty(),
                     x.getOrNull(13).orEmpty(),
                     x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                    x.getOrNull(15).orEmpty().ifBlank { "day" }
+                    x.getOrNull(15).orEmpty().ifBlank { "day" },
+                    reminders = TaskReminderCodec.decode(x.getOrNull(16)).ifEmpty {
+                        val h = hour?.takeIf { it in 0..23 }
+                        val m = minute?.takeIf { it in 0..59 }
+                        if (h != null && m != null) listOf(TaskReminder(h, m)) else emptyList()
+                    }
                 )
             }
         }
