@@ -219,7 +219,7 @@ private fun AdvancedTaskCard(context: Context, task: TodoItem, toggle: () -> Uni
                 if (task.note.isNotBlank()) Text(task.note, fontSize = 12.sp)
             }
             IconButton(edit) { Icon(Icons.Default.Edit, "ویرایش") }
-            IconButton({ archived = !archived; ExtraFeaturesStore.setArchived(context, task.id, archived) }) { Icon(if (archived) Icons.Default.Unarchive else Icons.Default.Archive, "آرشیو") }
+            IconButton({ ExtraFeaturesStore.saveUndo(context, task); archived = !archived; ExtraFeaturesStore.setArchived(context, task.id, archived) }) { Icon(if (archived) Icons.Default.Unarchive else Icons.Default.Archive, "آرشیو") }
             IconButton(delete) { Icon(Icons.Default.Delete, "حذف") }
         }
     }
