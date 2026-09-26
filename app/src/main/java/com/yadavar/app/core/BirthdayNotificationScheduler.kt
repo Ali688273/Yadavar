@@ -12,6 +12,13 @@ object BirthdayNotificationScheduler {
     private const val TODAY_BASE = 200000
 
     fun scheduleAll(context: Context, birthdays: List<StoredBirthday>) {
+        val enabled = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE).getBoolean("birthday_notifications_enabled", true)
+        if (!enabled) {
+            birthdays.forEach { b ->
+                cancelBirthday(context, b.id, b.month, b.day)
+            }
+            return
+        }
         birthdays.forEach {
             scheduleBirthday(context, it.id, it.name, it.month, it.day)
         }
