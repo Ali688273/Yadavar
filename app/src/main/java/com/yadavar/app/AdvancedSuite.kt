@@ -61,6 +61,12 @@ fun AdvancedSuiteScreen(context: Context, tasks: List<TodoItem>, onUpdate: (Todo
                 }
                 LinearProgressIndicator(progress = { (weekTasks.count { it.done }.toFloat()/goal).coerceIn(0f,1f) }, modifier = Modifier.fillMaxWidth())
                 (0..6).forEach { i -> val day=start.plusDays(i.toLong()); Text(day.dayOfWeek.toString() + ": " + weekTasks.count { it.dueDate == day.toString() } + " کار") }
+                weekTasks.forEach { task ->
+                    Row(verticalAlignment=Alignment.CenterVertically) {
+                        Text(task.title, Modifier.weight(1f), maxLines=1)
+                        (0..6).forEach { i -> TextButton(onClick={ onUpdate(task.copy(dueDate=start.plusDays(i.toLong()).toString())) }) { Text(start.plusDays(i.toLong()).dayOfMonth.toString()) } }
+                    }
+                }
             } }
         }
         item {
@@ -75,7 +81,13 @@ fun AdvancedSuiteScreen(context: Context, tasks: List<TodoItem>, onUpdate: (Todo
                 Row(verticalAlignment=Alignment.CenterVertically){Text("عقب‌افتاده",Modifier.weight(1f));Switch(overdueOnly,{overdueOnly=it})}
                 Button({AdvancedSuiteStore.addFilter(context,status+"|"+priority+"|"+category+"|"+tag+"|"+reminderOnly+"|"+overdueOnly+"|"+query)}){Text("ذخیره فیلتر")}
                 Text("نتیجه: " + result.size + " کار")
-                AdvancedSuiteStore.filters(context).take(8).forEach { value -> Row(verticalAlignment=Alignment.CenterVertically){Text(value,Modifier.weight(1f),maxLines=1);TextButton({AdvancedSuiteStore.removeFilter(context,value)}){Text("حذف")}}}
+                AdvancedSuiteStore.filters(context).take(8).forEach { value ->
+                    Row(verticalAlignment=Alignment.CenterVertically) {
+                        TextButton({ val x=value.split("|",limit=7); if(x.size==7){status=x[0];priority=x[1];category=x[2];tag=x[3];reminderOnly=x[4].toBoolean();overdueOnly=x[5].toBoolean();query=x[6]} }) { Text("اعمال") }
+                        Text(value,Modifier.weight(1f),maxLines=1)
+                        TextButton({AdvancedSuiteStore.removeFilter(context,value)}){Text("حذف")}
+                    }
+                }
             } }
         }
         item {
