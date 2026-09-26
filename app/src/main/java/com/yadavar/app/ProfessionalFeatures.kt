@@ -111,7 +111,7 @@ fun ProfessionalScreen(
     if (editing != null) {
         AdvancedTaskDialog(task = editing!!, dismiss = { editing = null }, save = {
             if (it.title.trim().isNotEmpty()) {
-                if (it.id < 0) onAdd(it.copy(id = (tasks.maxOfOrNull { x -> x.id } ?: 0) + 1)) else onUpdate(it)
+                if (it.id < 0) onAdd(it.copy(id = (tasks.maxOfOrNull { x -> x.id } ?: 0) + 1)) else { tasks.firstOrNull { x -> x.id == it.id }?.let { old -> ExtraFeaturesStore.saveUndo(context, old) }; onUpdate(it) }
             }
             editing = null
         })
