@@ -420,9 +420,9 @@ fun TodoScreen(
     onRequestClear: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val done = visibleTasks.count { it.done }
     val archived = ExtraFeaturesStore.archived(context = context)
     val visibleTasks = tasks.filterNot { it.id in archived }
+    val done = visibleTasks.count { it.done }
     val filtered = if (query.isBlank()) visibleTasks else visibleTasks.filter {
         val q = query.trim()
         it.title.contains(q, ignoreCase = true) ||
@@ -430,7 +430,7 @@ fun TodoScreen(
             it.tags.contains(q, ignoreCase = true) ||
             it.category.contains(q, ignoreCase = true)
     }
-    val progress = if (tasks.isEmpty()) 0f else done.toFloat() / tasks.size.toFloat()
+    val progress = if (visibleTasks.isEmpty()) 0f else done.toFloat() / visibleTasks.size.toFloat()
 
     Column(modifier.fillMaxSize().padding(16.dp)) {
         Text("کارهای امروز", fontSize = 26.sp, fontWeight = FontWeight.Bold)
