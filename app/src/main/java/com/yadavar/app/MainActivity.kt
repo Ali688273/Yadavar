@@ -565,6 +565,7 @@ fun EditTaskDialog(
                     Text("یادآوری زمان‌دار")
                 }
                 if (reminderEnabled) {
+                    ReminderEditor(reminders) { reminders = it }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             hour, { hour = it.filter(Char::isDigit).take(2) },
