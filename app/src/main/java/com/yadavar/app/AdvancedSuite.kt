@@ -59,7 +59,7 @@ fun AdvancedSuiteScreen(context: Context, tasks: List<TodoItem>, onUpdate: (Todo
                     OutlinedTextField(goal.toString(), { it.toIntOrNull()?.let { v -> goal=v.coerceIn(1,999); AdvancedSuiteStore.setGoal(context,goal) } }, Modifier.weight(1f), singleLine=true, label={Text("هدف هفتگی")})
                     Text(" " + weekTasks.count { it.done } + " / " + goal)
                 }
-                LinearProgressIndicator({ (weekTasks.count { it.done }.toFloat()/goal).coerceIn(0f,1f) }, Modifier.fillMaxWidth())
+                LinearProgressIndicator(progress = { (weekTasks.count { it.done }.toFloat()/goal).coerceIn(0f,1f) }, modifier = Modifier.fillMaxWidth())
                 (0..6).forEach { i -> val day=start.plusDays(i.toLong()); Text(day.dayOfWeek.toString() + ": " + weekTasks.count { it.dueDate == day.toString() } + " کار") }
             } }
         }
