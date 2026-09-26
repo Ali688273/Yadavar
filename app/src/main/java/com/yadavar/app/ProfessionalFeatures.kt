@@ -71,7 +71,7 @@ fun ProfessionalScreen(
         Text("امروز: ${jalaliDate(today)} • عقب‌افتاده: $overdue", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         ScrollableTabRow(selectedTabIndex = section, edgePadding = 0.dp) {
-            listOf("امروز", "تقویم", "همه کارها", "عادت‌ها", "تمرکز", "آمار", "ابزارها", "تکمیل").forEachIndexed { i, title ->
+            listOf("امروز", "تقویم", "همه کارها", "عادت‌ها", "تمرکز", "آمار", "ابزارها", "تکمیل", "۲۰ امکانات").forEachIndexed { i, title ->
                 Tab(section == i, { section = i }, text = { Text(title) })
             }
         }
@@ -105,6 +105,7 @@ fun ProfessionalScreen(
             4 -> FocusPanel(context, tasks)
             5 -> StatsPanel(tasks)
             6 -> ToolsPanel(context)
+            8 -> TwentyFeaturesScreen(context, tasks, onUpdate)
             else -> ExtraFeaturesScreen(context, tasks, onAdd, onUpdate, onDelete)
         }
     }
