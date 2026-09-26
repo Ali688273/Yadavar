@@ -20,4 +20,11 @@
         android:layout_marginTop="6dp"
         android:text="0 از 0 کار انجام شده"
         android:textSize="14sp"/>
+    <TextView
+        android:id="@+id/widget_next"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="بعدی: —"
+        android:textSize="13sp"/>
 </LinearLayout>
