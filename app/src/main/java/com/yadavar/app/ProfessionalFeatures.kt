@@ -97,7 +97,7 @@ fun ProfessionalScreen(
                 }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(visible, key = { it.id }) { t ->
-                        AdvancedTaskCard(context, t, { onUpdate(t.copy(done = !t.done)) }, { editing = t }, { ExtraFeaturesStore.saveUndo(context, t); onDelete(t.id) })
+                        AdvancedTaskCard(context, t, { ExtraFeaturesStore.saveUndo(context,t); onUpdate(t.copy(done = !t.done)) }, { editing = t }, { ExtraFeaturesStore.saveUndo(context, t); onDelete(t.id) })
                     }
                 }
             }
