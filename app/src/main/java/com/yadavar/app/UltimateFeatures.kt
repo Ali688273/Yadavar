@@ -56,6 +56,11 @@ private object UltimateStore {
     fun setDashboard(c:Context,l:List<String>){putText(c,"dashboard",l.joinToString(","))}
     fun taskOrder(c:Context):List<Int> = text(c,"task_order","").split(",").mapNotNull{it.toIntOrNull()}
     fun setTaskOrder(c:Context,l:List<Int>){putText(c,"task_order",l.joinToString(","))}
+    fun setRepeatRule(c:Context,id:Int,every:Int,unit:String,days:String,end:String){
+        val o=obj(c,"repeat_rules")
+        o.put(id.toString(),JSONObject().put("every",every).put("unit",unit).put("days",days).put("end",end))
+        putObj(c,"repeat_rules",o)
+    }
 }
 
 private object JalaliDate {
@@ -122,7 +127,7 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
         OutlinedTextField(unit,{unit=it},Modifier.fillMaxWidth(),label={Text("واحد day/week/month/year")})
         OutlinedTextField(weekdays,{weekdays=it},Modifier.fillMaxWidth(),label={Text("روزهای هفته")})
         OutlinedTextField(end,{end=it},Modifier.fillMaxWidth(),label={Text("پایان YYYY-MM-DD")})
-        Button({tasks.firstOrNull{it.id==id}?.let{t->UltimateStore.history(c,t,"repeat:"+every+":"+unit+":"+weekdays+":"+end);update(t.copy(repeat="custom",customEvery=every.toIntOrNull()?.coerceAtLeast(1)?:1,customUnit=unit))}}){Text("ذخیره تکرار")}
+        Button({tasks.firstOrNull{it.id==id}?.let{t->val e=every.toIntOrNull()?.coerceAtLeast(1)?:1;UltimateStore.setRepeatRule(c,t.id,e,unit,weekdays,end);UltimateStore.history(c,t,"repeat:"+e+":"+unit+":"+weekdays+":"+end);update(t.copy(repeat="custom",customEvery=e,customUnit=unit))}}){Text("ذخیره تکرار")}
     }
 }
 
