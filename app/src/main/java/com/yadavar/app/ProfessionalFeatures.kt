@@ -365,7 +365,7 @@ private fun FocusPanel(context: Context, tasks: List<TodoItem>) {
             FilterChip(mode=="استراحت بلند",{mode="استراحت بلند";minutes=15;seconds=0},label={Text("بلند")})
         }
         Text("چرخه‌های کامل: " + cycles)
-        tasks.filter{!it.done}.take(8).forEach { t -> TextButton({selectedTask=t.id}){Text(if(selectedTask==t.id)"✓ ":"")+"اتصال به: "+t.title} }
+        tasks.filter{!it.done}.take(8).forEach { t -> TextButton({selectedTask=t.id}){Text((if(selectedTask==t.id) "✓ " else "") + "اتصال به: " + t.title)} }
     }
 }
 
