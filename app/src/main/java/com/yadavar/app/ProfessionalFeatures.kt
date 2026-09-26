@@ -318,6 +318,16 @@ private fun HabitPanel(context: Context) {
                     }) { Text("امروز") }
                     val dates = prefs.getStringSet("habit_dates_" + name, emptySet()) ?: emptySet()
                     Text("۷ روز اخیر: " + (0..6).count { LocalDate.now().minusDays(it.toLong()).toString() in dates } + " • بهترین: " + calculateBestStreak(dates), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    TextButton(onClick = { habits = habits - name; prefs.edit().remove("habit_dates_" + name).apply(); saveHabits(prefs, habits) }) { Text("حذف") }
+    TextButton(onClick = { val cleared = dates.filter { it != LocalDate.now().toString() }.toSet(); prefs.edit().putStringSet("habit_dates_" + name, cleared).apply(); habits = habits + (name to calculateHabitStreak(cleared)); saveHabits(prefs, habits) }) { Text("ثبت/ویرایش امروز") }
+}
+Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    (0..29).reversed().forEach { offset ->
+        val active = LocalDate.now().minusDays(offset.toLong()).toString() in dates
+        Surface(modifier = Modifier.size(10.dp), color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant) {}
+    }
+}
                 }
             }
         }
