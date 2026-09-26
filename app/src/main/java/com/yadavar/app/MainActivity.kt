@@ -80,7 +80,7 @@ fun YadavarApp(context: Context) {
     var showDeleteCompleted by remember { mutableStateOf(false) }
     var taskToDelete by remember { mutableStateOf<TodoItem?>(null) }
     var birthdayToDelete by remember { mutableStateOf<StoredBirthday?>(null) }
-    var taskQuery by remember { mutableStateOf("") }
+    var taskQuery by remember { mutableStateOf("") }\n    var unlocked by rememberSaveable { mutableStateOf(ExtraFeaturesStore.pin(context).isBlank()) }\n    var unlockPin by remember { mutableStateOf("") }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
     val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
@@ -201,7 +201,7 @@ fun YadavarApp(context: Context) {
         }
     }
 
-    if (taskToDelete != null) {
+    if (!unlocked) {\n        AlertDialog(onDismissRequest = {}, title = { Text("قفل برنامه") }, text = { OutlinedTextField(unlockPin, { unlockPin = it.filter(Char::isDigit).take(8) }, singleLine = true, label = { Text("PIN") }) }, confirmButton = { Button(onClick = { if (unlockPin == ExtraFeaturesStore.pin(context)) { unlocked = true; unlockPin = "" } }) { Text("ورود") } })\n    }\n\n    if (taskToDelete != null) {
         val task = taskToDelete!!
         AlertDialog(
             onDismissRequest = { taskToDelete = null },
