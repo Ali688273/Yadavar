@@ -105,7 +105,7 @@ fun ProfessionalScreen(
             4 -> FocusPanel(context, tasks)
             5 -> StatsPanel(tasks)
             6 -> ToolsPanel(context)
-            8 -> TwentyFeaturesScreen(context, tasks, onUpdate)
+            8 -> UltimateFeaturesScreen(context, tasks, onUpdate, onDelete)
             else -> ExtraFeaturesScreen(context, tasks, onAdd, onUpdate, onDelete)
         }
     }
