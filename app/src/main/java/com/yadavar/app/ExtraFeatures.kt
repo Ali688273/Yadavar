@@ -74,7 +74,10 @@ object ExtraFeaturesStore {
     fun setPin(c:Context,v:String)=p(c).edit().putString("app_pin",hashPin(v.filter(Char::isDigit).take(8))).apply()
     fun verifyPin(c:Context,v:String):Boolean {
         val stored=pin(c)
-        return stored.isNotBlank() && stored==hashPin(v.filter(Char::isDigit).take(8))
+        val digits=v.filter(Char::isDigit).take(8)
+        if (stored.isBlank()) return false
+        if (stored == digits) { setPin(c,digits); return true }
+        return stored==hashPin(digits)
     }
     private fun hashPin(v:String):String=MessageDigest.getInstance("SHA-256").digest(v.toByteArray(Charsets.UTF_8)).joinToString(""){"%02x".format(it)}
 }
