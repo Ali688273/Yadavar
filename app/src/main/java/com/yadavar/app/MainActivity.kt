@@ -215,6 +215,7 @@ fun YadavarApp(context: Context) {
     ) { pad ->
         when (tab) {
             0 -> TodoScreen(
+                context = context,
                 tasks = tasks,
                 query = taskQuery,
                 onQueryChange = { taskQuery = it },
@@ -411,6 +412,7 @@ fun YadavarApp(context: Context) {
 
 @Composable
 fun TodoScreen(
+    context: Context,
     tasks: List<TodoItem>,
     query: String,
     onQueryChange: (String) -> Unit,
