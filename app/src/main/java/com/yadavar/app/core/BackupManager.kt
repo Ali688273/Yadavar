@@ -76,8 +76,7 @@ object BackupManager {
         extra.put("archivedIds", JSONArray(ep.getStringSet("archived_ids", emptySet()) ?: emptySet<String>()))
         extra.put("templates", ep.getString("templates", "").orEmpty())
         extra.put("weeklyGoal", ep.getInt("weekly_goal", 10))
-        extra.put("appPin", ep.getString("app_pin", "").orEmpty())
-        val habitHistory = JSONObject()
+        extra        val habitHistory = JSONObject()
         loadHabits(prefs).keys.forEach { name ->
             habitHistory.put(name, JSONArray(prefs.getStringSet("habit_dates_" + name, emptySet()) ?: emptySet<String>()))
         }
@@ -130,7 +129,6 @@ object BackupManager {
             .putStringSet("archived_ids", ex.optJSONArray("archivedIds")?.let { a -> (0 until a.length()).mapNotNull { a.optInt(it, -1).takeIf { id -> id >= 0 } }.map { it.toString() }.toSet() } ?: emptySet())
             .putString("templates", ex.optString("templates", ""))
             .putInt("weekly_goal", ex.optInt("weeklyGoal", 10).coerceIn(1,999))
-            .putString("app_pin", ex.optString("appPin", ""))
             .apply()
         val history = ex.optJSONObject("habitHistory")
         if (history != null) {
@@ -139,7 +137,7 @@ object BackupManager {
                 val name = keys.next()
                 val a = history.optJSONArray(name) ?: JSONArray()
                 val set = (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }.toSet()
-                ep.edit().putStringSet("habit_dates_" + name, set).apply()
+                prefs.edit().putStringSet("habit_dates_" + name, set).apply()
             }
         }
         editor.apply()
