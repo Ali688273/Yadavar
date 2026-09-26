@@ -37,7 +37,6 @@ import java.util.Locale
 import java.security.MessageDigest
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 
@@ -170,12 +169,11 @@ fun YadavarApp(context: Context) {
         TaskNotificationScheduler.scheduleAll(context, tasks)
     }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = context as? androidx.lifecycle.LifecycleOwner
     DisposableEffect(lifecycleOwner) {
+        if (lifecycleOwner == null) return@DisposableEffect onDispose {}
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP && ExtraFeaturesStore.pin(context).isNotBlank()) {
-                unlocked = false
-            }
+            if (event == Lifecycle.Event.ON_STOP && ExtraFeaturesStore.pin(context).isNotBlank()) unlocked = false
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
