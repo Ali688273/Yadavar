@@ -442,6 +442,8 @@ fun TodoScreen(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(8.dp))
+            HomeDashboard(context, visibleTasks)
         }
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
