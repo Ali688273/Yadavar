@@ -63,11 +63,11 @@ object ExtraFeaturesStore {
         p(c).edit().putString("undo_task",o.toString()).apply()
     }
     fun clearUndo(c:Context){p(c).edit().remove("undo_task").apply()}
-    fun templates(c:Context):List<TodoItem>{return p(c).getString("templates","").orEmpty().split("\\n").mapNotNull{val x=it.split("\\t",limit=5);if(x.size==5)TodoItem(0,x[0],category=x[1],priority=x[2],note=x[3],subtasks=x[4])else null}}
-    fun saveTemplates(c:Context,list:List<TodoItem>){p(c).edit().putString("templates",list.joinToString("\\n"){listOf(it.title,it.category,it.priority,it.note,it.subtasks).joinToString("\\t")}).apply()}
-    fun inbox(c:Context):List<String>=p(c).getString("inbox","").orEmpty().split("\\n").filter{it.isNotBlank()}
-    fun addInbox(c:Context,text:String){p(c).edit().putString("inbox",(inbox(c)+text.trim()).distinct().joinToString("\\n")).apply()}
-    fun removeInbox(c:Context,text:String){p(c).edit().putString("inbox",inbox(c).filter{it!=text}.joinToString("\\n")).apply()}
+    fun templates(c:Context):List<TodoItem>{return p(c).getString("templates","").orEmpty().split("\n").mapNotNull{val x=it.split("\t",limit=5);if(x.size==5)TodoItem(0,x[0],category=x[1],priority=x[2],note=x[3],subtasks=x[4])else null}}
+    fun saveTemplates(c:Context,list:List<TodoItem>){p(c).edit().putString("templates",list.joinToString("\n"){listOf(it.title,it.category,it.priority,it.note,it.subtasks).joinToString("\\t")}).apply()}
+    fun inbox(c:Context):List<String>=p(c).getString("inbox","").orEmpty().split("\n").filter{it.isNotBlank()}
+    fun addInbox(c:Context,text:String){p(c).edit().putString("inbox",(inbox(c)+text.trim()).distinct().joinToString("\n")).apply()}
+    fun removeInbox(c:Context,text:String){p(c).edit().putString("inbox",inbox(c).filter{it!=text}.joinToString("\n")).apply()}
     fun weeklyGoal(c:Context):Int=p(c).getInt("weekly_goal",10)
     fun setWeeklyGoal(c:Context,v:Int)=p(c).edit().putInt("weekly_goal",v.coerceIn(1,999)).apply()
     fun pin(c:Context):String=p(c).getString("app_pin","").orEmpty()
@@ -114,7 +114,7 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
         item{Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){OutlinedTextField(text,onText,Modifier.weight(1f),singleLine=true,label={Text("یک فکر یا کار")});Button(onClick={onAdd();values=ExtraFeaturesStore.inbox(c)}){Text("ثبت")}}}
         items(values){value->Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){
             Text(value,Modifier.weight(1f))
-            TextButton(onClick={ExtraFeaturesStore.removeInbox(c,value);values=ExtraFeaturesStore.inbox(c);}){Text("تبدیل به کار")}
+            TextButton(onClick={onConvert(value)}){Text("تبدیل به کار")}
             IconButton({ExtraFeaturesStore.removeInbox(c,value);values=ExtraFeaturesStore.inbox(c)}){Icon(Icons.Default.Delete,"حذف")}
         }}}
     }
@@ -143,7 +143,7 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
 }
 @Composable private fun ReportPanel(tasks:List<TodoItem>){
     val now=LocalDate.now();val start=now.minusDays(((now.dayOfWeek.value+1)%7).toLong());val week=tasks.count{it.done&&it.dueDate.isNotBlank()&&runCatching{LocalDate.parse(it.dueDate)}.getOrNull() in start..now};val month=tasks.count{it.done&&it.dueDate.startsWith(now.toString().substring(0,7))};val overdue=tasks.count{!it.done&&it.dueDate.isNotBlank()&&runCatching{LocalDate.parse(it.dueDate)}.getOrNull()?.isBefore(now)==true};val done=tasks.count{it.done};val total=tasks.size
-    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("گزارش هفتگی و ماهانه",fontSize=20.sp,fontWeight=FontWeight.Bold)};item{ReportCard("کل کارها",total)};item{ReportCard("انجام‌شده",done)};item{ReportCard("انجام‌شده در هفته جاری",week)};item{ReportCard("انجام‌شده در ماه جاری",month)};item{ReportCard("عقب‌افتاده",overdue)};item{ReportCard("نرخ تکمیل",if(total==0)0 else done*100/total,"٪")};item{Button(onClick={val csv="عنوان,وضعیت,اولویت,سررسید\\n"+tasks.joinToString("\\n"){it.title.replace(","," ") + "," + if(it.done)"انجام‌شده" else "باز" + "," + it.priority + "," + it.dueDate};c.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="text/csv";putExtra(Intent.EXTRA_TEXT,csv)},"اشتراک CSV"))}){Icon(Icons.Default.Share,null);Spacer(Modifier.width(6.dp));Text("خروجی CSV")}}}
+    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("گزارش هفتگی و ماهانه",fontSize=20.sp,fontWeight=FontWeight.Bold)};item{ReportCard("کل کارها",total)};item{ReportCard("انجام‌شده",done)};item{ReportCard("انجام‌شده در هفته جاری",week)};item{ReportCard("انجام‌شده در ماه جاری",month)};item{ReportCard("عقب‌افتاده",overdue)};item{ReportCard("نرخ تکمیل",if(total==0)0 else done*100/total,"٪")};item{Button(onClick={val csv="عنوان,وضعیت,اولویت,سررسید\\n"+tasks.joinToString("\n"){it.title.replace(","," ") + "," + if(it.done)"انجام‌شده" else "باز" + "," + it.priority + "," + it.dueDate};c.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="text/csv";putExtra(Intent.EXTRA_TEXT,csv)},"اشتراک CSV"))}){Icon(Icons.Default.Share,null);Spacer(Modifier.width(6.dp));Text("خروجی CSV")}}}
 }
 @Composable private fun ReportCard(t:String,v:Int,s:String=""){Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(t);Text("$v$s",fontWeight=FontWeight.Bold)}}}
 @Composable private fun TemplatePanel(c:Context,name:String,onName:(String)->Unit,tasks:List<TodoItem>,onAdd:(TodoItem)->Unit){
