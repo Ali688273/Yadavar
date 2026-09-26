@@ -269,6 +269,8 @@ fun YadavarApp(context: Context) {
             confirmButton = {
                 Button(onClick = {
                     TaskNotificationScheduler.cancelTask(context, task.id)
+                    ExtraFeaturesStore.saveUndo(context, task)
+                    ExtraFeaturesStore.setArchived(context, task.id, false)
                     tasks.removeAll { it.id == task.id }
                     saveT()
                     taskToDelete = null
@@ -308,6 +310,8 @@ fun YadavarApp(context: Context) {
             text = { Text("همه کارهای انجام‌شده حذف شوند؟") },
             confirmButton = {
                 Button(onClick = {
+                    tasks.filter { it.done }.lastOrNull()?.let { ExtraFeaturesStore.saveUndo(context, it) }
+                    tasks.filter { it.done }.forEach { ExtraFeaturesStore.setArchived(context, it.id, false) }
                     tasks.removeAll { it.done }
                     saveT()
                     showDeleteCompleted = false
