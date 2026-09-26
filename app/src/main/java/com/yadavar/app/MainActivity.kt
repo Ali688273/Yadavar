@@ -148,7 +148,7 @@ fun YadavarApp(context: Context) {
     }
 
     LaunchedEffect(Unit) {
-        val extraPrefs = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
+        val extraPrefs = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE)
         if (extraPrefs.getBoolean("smart_auto_carry", true) &&
             extraPrefs.getString("last_auto_carry_date", "") != java.time.LocalDate.now().toString()) {
             val today = java.time.LocalDate.now()
