@@ -367,10 +367,10 @@ fun YadavarApp(context: Context) {
     }
 
     if (addBirthday) {
-        AddBirthdayDialog(dismiss = { addBirthday = false }) { name, m, d ->
+        AddBirthdayDialog(dismiss = { addBirthday = false }) { name, m, d, y, offsets ->
             if (name.trim().isNotEmpty() && isValidBirthdayDate(m, d)) {
                 birthdays.add(
-                    StoredBirthday((birthdays.maxOfOrNull { it.id } ?: 0) + 1, name.trim(), m, d, null, "1,0")
+                    StoredBirthday((birthdays.maxOfOrNull { it.id } ?: 0) + 1, name.trim(), m, d, y, offsets)
                 )
                 saveB()
             }
@@ -382,7 +382,7 @@ fun YadavarApp(context: Context) {
         EditBirthdayDialog(
             birthday = birthday,
             dismiss = { editingBirthday = null },
-            save = { name, month, day ->
+            save = { name, month, day, year, offsets ->
                 val index = birthdays.indexOfFirst { it.id == birthday.id }
                 if (index >= 0) {
                     BirthdayNotificationScheduler.cancelBirthday(
@@ -797,10 +797,12 @@ fun BirthdayScreen(
 }
 
 @Composable
-fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int) -> Unit) {
+fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int, Int?, String) -> Unit) {
     var name by remember { mutableStateOf("") }
     var day by remember { mutableStateOf("") }
     var month by remember { mutableStateOf("") }
+    var year by remember { mutableStateOf("") }
+    var offsets by remember { mutableStateOf("1,0") }
     var error by remember { mutableStateOf("") }
     val d = day.toIntOrNull()
     val m = month.toIntOrNull()
@@ -815,7 +817,9 @@ fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int) -> Unit) {
                     OutlinedTextField(day, { day = it.filter(Char::isDigit) }, Modifier.weight(1f), singleLine = true, label = { Text("روز") })
                     OutlinedTextField(month, { month = it.filter(Char::isDigit) }, Modifier.weight(1f), singleLine = true, label = { Text("ماه") })
                 }
-                Text("مثال: 15 / 7", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(year, { year = it.filter(Char::isDigit).take(4) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("سال تولد (اختیاری)") })
+                OutlinedTextField(offsets, { offsets = it.filter { ch -> ch.isDigit() || ch == ',' }.take(30) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("یادآوری‌ها: 30,7,1,0 روز قبل") })
+                Text("برای ۲۹ فوریه در سال غیرکبیسه، اعلان به ۱ مارس منتقل می‌شود.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -825,7 +829,7 @@ fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int) -> Unit) {
                     name.isBlank() -> error = "نام را وارد کنید"
                     m == null || d == null -> error = "روز و ماه را وارد کنید"
                     !isValidBirthdayDate(m, d) -> error = "این تاریخ معتبر نیست"
-                    else -> add(name, m, d)
+                    else -> add(name, m, d, year.toIntOrNull()?.takeIf { it in 1900..2200 }, offsets)
                 }
             }) { Text("ذخیره") }
         },
@@ -837,11 +841,13 @@ fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int) -> Unit) {
 fun EditBirthdayDialog(
     birthday: StoredBirthday,
     dismiss: () -> Unit,
-    save: (String, Int, Int) -> Unit
+    save: (String, Int, Int, Int?, String) -> Unit
 ) {
     var name by remember(birthday.id) { mutableStateOf(birthday.name) }
     var day by remember(birthday.id) { mutableStateOf(birthday.day.toString()) }
     var month by remember(birthday.id) { mutableStateOf(birthday.month.toString()) }
+    var year by remember(birthday.id) { mutableStateOf(birthday.year?.toString().orEmpty()) }
+    var offsets by remember(birthday.id) { mutableStateOf(birthday.reminderOffsets) }
     var error by remember(birthday.id) { mutableStateOf("") }
 
     val d = day.toIntOrNull()
@@ -875,7 +881,8 @@ fun EditBirthdayDialog(
                         label = { Text("ماه") }
                     )
                 }
-                Text("مثال: 15 / 7", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(year, { year = it.filter(Char::isDigit).take(4) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("سال تولد (اختیاری)") })
+                OutlinedTextField(offsets, { offsets = it.filter { ch -> ch.isDigit() || ch == ',' }.take(30) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("یادآوری‌ها: 30,7,1,0 روز قبل") })
                 if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -885,7 +892,7 @@ fun EditBirthdayDialog(
                     name.isBlank() -> error = "نام را وارد کنید"
                     m == null || d == null -> error = "روز و ماه را وارد کنید"
                     !isValidBirthdayDate(m, d) -> error = "این تاریخ معتبر نیست"
-                    else -> save(name, m, d)
+                    else -> save(name, m, d, year.toIntOrNull()?.takeIf { it in 1900..2200 }, offsets)
                 }
             }) { Text("ذخیره تغییرات") }
         },
