@@ -323,9 +323,7 @@ private fun IdeasPanel(context: Context) {
         Text("لیست خرید: از دسته «خرید» برای نگهداری اقلام استفاده کن.")
         Text("مکان در هر کار ذخیره می‌شود و برای مرحله Geofence آماده است.")
         Button(onClick = {
-            val body = "یادآور\
-تعداد کارها: \${loadTasks(context).size}\
-تعداد تولدها: \${loadBirthdays(context).size}"
+            val body = "یادآور\\nتعداد کارها: \${loadTasks(context).size}\\nتعداد تولدها: \${loadBirthdays(context).size}"
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }, "اشتراک‌گذاری پشتیبان"))
         }) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(6.dp)); Text("خروجی پشتیبان") }
     }
@@ -432,9 +430,7 @@ private fun ToolsPanel(context: Context) {
                     Text("پشتیبان سریع", fontWeight = FontWeight.Bold)
                     Text("خلاصه داده‌ها را برای نگهداری یا ارسال کپی کن.")
                     Button(onClick = {
-                        val body = "یادآور
-کارها: " + loadTasks(context).size + "
-تولدها: " + loadBirthdays(context).size
+                        val body = "یادآور\nکارها: " + loadTasks(context).size + "\nتولدها: " + loadBirthdays(context).size
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, body)
@@ -446,19 +442,15 @@ private fun ToolsPanel(context: Context) {
     }
 }
 private fun loadHabits(prefs: android.content.SharedPreferences): Map<String, Int> =
-    prefs.getString("habits", "").orEmpty().split("
-").mapNotNull {
+    prefs.getString("habits", "").orEmpty().split("\n").mapNotNull {
         val x = it.split("\t", limit = 2)
         if (x.size == 2) x[0] to (x[1].toIntOrNull() ?: 0) else null
     }.toMap()
 private fun saveHabits(prefs: android.content.SharedPreferences, habits: Map<String, Int>) {
-    prefs.edit().putString("habits", habits.entries.joinToString("
-") { it.key.replace("\t", " ") + "\t" + it.value }).apply()
+    prefs.edit().putString("habits", habits.entries.joinToString("\n") { it.key.replace("\t", " ") + "\t" + it.value }).apply()
 }
 private fun loadShopping(context: Context): List<String> =
-    context.getSharedPreferences("yadavar_data", 0).getString("shopping", "").orEmpty().split("
-").filter { it.isNotBlank() }
+    context.getSharedPreferences("yadavar_data", 0).getString("shopping", "").orEmpty().split("\n").filter { it.isNotBlank() }
 private fun saveShopping(context: Context, values: List<String>) {
-    context.getSharedPreferences("yadavar_data", 0).edit().putString("shopping", values.joinToString("
-")).apply()
+    context.getSharedPreferences("yadavar_data", 0).edit().putString("shopping", values.joinToString("\n")).apply()
 }
