@@ -96,7 +96,7 @@ object BackupManager {
         val prefs = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE)
         val editor = prefs.edit()
 
-        editor.putString("tasks", data.tasks.joinToString("\n") {
+        if (includeTasks) editor.putString("tasks", data.tasks.joinToString("\n") {
             it.id.toString() + "\t" +
                 (if (it.done) "1" else "0") + "\t" +
                 clean(it.title) + "\t" +
@@ -110,7 +110,7 @@ object BackupManager {
         })
         editor.putString("tasks_date", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()))
 
-        editor.putString("birthdays", data.birthdays.joinToString("\n") {
+        if (includeBirthdays) editor.putString("birthdays", data.birthdays.joinToString("\n") {
             it.id.toString() + "\t" + clean(it.name) + "\t" + it.month + "\t" + it.day + "\t" + (it.year?.toString() ?: "") + "\t" + it.reminderOffsets
         })
 
