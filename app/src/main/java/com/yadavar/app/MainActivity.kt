@@ -1041,9 +1041,7 @@ private fun saveBirthdays(context: Context, list: List<StoredBirthday>) {
         .putString(
             "birthdays",
             list.joinToString("\n") {
-                it.id.toString() + "\t" +
-                    it.name.replace("\n", " ").replace("\t", " ") +
-                    "\t" + it.month + "\t" + it.day
+                it.id.toString() + "\t" + it.name.replace("\n", " ").replace("\t", " ") + "\t" + it.month + "\t" + it.day + "\t" + (it.year?.toString() ?: "") + "\t" + it.reminderOffsets
             }
         ).apply()
 }
