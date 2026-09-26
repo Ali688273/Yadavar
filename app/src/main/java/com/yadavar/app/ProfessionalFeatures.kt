@@ -346,7 +346,7 @@ private fun FocusPanel(context: Context, tasks: List<TodoItem>) {
         while (running) {
             kotlinx.coroutines.delay(1000)
             if (seconds > 0) seconds-- else if (minutes > 0) minutes-- else {
-                if (mode == "تمرکز") { cycles++; ExtraFeaturesStore.saveUndo(context, tasks.firstOrNull { it.id == selectedTask } ?: TodoItem(-1,"جلسه تمرکز")); mode="استراحت کوتاه"; minutes=5; seconds=0 }
+                if (mode == "تمرکز") { cycles++; mode="استراحت کوتاه"; minutes=5; seconds=0 }
                 else { mode=if(cycles % 4 == 0) "استراحت بلند" else "تمرکز"; minutes=if(mode=="استراحت بلند")15 else 25; seconds=0 }
             }
         }
