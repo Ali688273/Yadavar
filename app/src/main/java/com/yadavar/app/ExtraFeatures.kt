@@ -100,7 +100,7 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
         when(section){
             0->InboxPanel(context,inboxText,{inboxText=it},{val s=inboxText.trim();if(s.isNotEmpty()){ExtraFeaturesStore.addInbox(context,s);inboxText=""}},{text->onAdd(TodoItem((tasks.maxOfOrNull{it.id}?:0)+1,text));ExtraFeaturesStore.removeInbox(context,text)})
             1->ArchivePanel(context,tasks,onDelete)
-            2->UndoPanel(context,onAdd)
+            2->UndoPanel(context,tasks,onAdd,onUpdate)
             3->WeeklyPanel(context,tasks,selectedWeek,{selectedWeek=it},goal,{goal=it;ExtraFeaturesStore.setWeeklyGoal(context,it)})
             4->ReportPanel(tasks)
             5->TemplatePanel(context,templateName,{templateName=it},tasks,onAdd)
@@ -127,10 +127,10 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
         if(tasks.none{it.id in archived})item{Text("آرشیوی وجود ندارد.")}
     }
 }
-@Composable private fun UndoPanel(c:Context,onAdd:(TodoItem)->Unit){
+@Composable private fun UndoPanel(c:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->Unit,onUpdate:(TodoItem)->Unit){
     val saved=ExtraFeaturesStore.undo(c)
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("بازگشت آخرین حذف",fontSize=20.sp,fontWeight=FontWeight.Bold)
-        if(saved==null)Text("عملیات قابل بازگردانی وجود ندارد.")else{Text("آخرین مورد: "+saved.title);Button(onClick={onAdd(saved);ExtraFeaturesStore.clearUndo(c)}){Text("بازگردانی")}}
+        if(saved==null)Text("عملیات قابل بازگردانی وجود ندارد.")else{Text("آخرین مورد: "+saved.title);Button(onClick={if(tasks.any{it.id==saved.id})onUpdate(saved)else onAdd(saved);ExtraFeaturesStore.setArchived(c,saved.id,false);ExtraFeaturesStore.clearUndo(c)}){Text("بازگردانی")}}
     }
 }
 @Composable private fun WeeklyPanel(c:Context,tasks:List<TodoItem>,week:LocalDate,onWeek:(LocalDate)->Unit,goal:Int,onGoal:(Int)->Unit){
