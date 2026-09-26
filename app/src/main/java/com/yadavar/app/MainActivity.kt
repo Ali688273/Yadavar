@@ -853,6 +853,8 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("تولدهای ذخیره‌شده: " + birthdays)
+                Spacer(Modifier.height(12.dp))
+                PersonalizationSettings(context)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -1001,4 +1003,24 @@ private fun isValidBirthdayDate(month: Int, day: Int): Boolean {
         else -> 31
     }
     return day in 1..maxDay
+}
+
+@Composable
+private fun PersonalizationSettings(context: Context) {
+    val prefs = context.getSharedPreferences("yadavar_data", 0)
+    var compact by remember { mutableStateOf(prefs.getBoolean("compact_mode", false)) }
+    var autoCarry by remember { mutableStateOf(prefs.getBoolean("smart_auto_carry", true)) }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("شخصی‌سازی و رفتار هوشمند", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("نمای فشرده", Modifier.weight(1f))
+                Switch(checked = compact, onCheckedChange = { compact = it; prefs.edit().putBoolean("compact_mode", it).apply() })
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("پیشنهاد خودکار کارهای عقب‌افتاده", Modifier.weight(1f))
+                Switch(checked = autoCarry, onCheckedChange = { autoCarry = it; prefs.edit().putBoolean("smart_auto_carry", it).apply() })
+            }
+        }
+    }
 }
