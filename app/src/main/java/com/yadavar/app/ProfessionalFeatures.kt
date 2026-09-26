@@ -143,6 +143,27 @@ private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: L
             FilterChip(mode == v, { mode = v }, label = { Text(l) })
         }
     }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = {
+            onSelected(when (mode) {
+                "day" -> selected.minusDays(1)
+                "week" -> selected.minusWeeks(1)
+                else -> selected.minusMonths(1)
+            })
+        }) { Icon(Icons.Default.ChevronLeft, "قبلی") }
+        TextButton(onClick = { onSelected(LocalDate.now()) }) { Text("امروز") }
+        IconButton(onClick = {
+            onSelected(when (mode) {
+                "day" -> selected.plusDays(1)
+                "week" -> selected.plusWeeks(1)
+                else -> selected.plusMonths(1)
+            })
+        }) { Icon(Icons.Default.ChevronRight, "بعدی") }
+    }
     Spacer(Modifier.height(8.dp))
     val dates = when (mode) {
         "day" -> listOf(selected)
@@ -183,6 +204,7 @@ private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: L
 
 @Composable
 private fun AdvancedTaskCard(context: Context, task: TodoItem, toggle: () -> Unit, edit: () -> Unit, delete: () -> Unit) {
+    var archived by remember(task.id) { mutableStateOf(ExtraFeaturesStore.archived(context).contains(task.id)) }
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(task.done, { toggle() })
@@ -197,7 +219,7 @@ private fun AdvancedTaskCard(context: Context, task: TodoItem, toggle: () -> Uni
                 if (task.note.isNotBlank()) Text(task.note, fontSize = 12.sp)
             }
             IconButton(edit) { Icon(Icons.Default.Edit, "ویرایش") }
-            IconButton({ ExtraFeaturesStore.setArchived(context, task.id, !ExtraFeaturesStore.archived(context).contains(task.id)) }) { Icon(if (ExtraFeaturesStore.archived(context).contains(task.id)) Icons.Default.Unarchive else Icons.Default.Archive, "آرشیو") }
+            IconButton({ archived = !archived; ExtraFeaturesStore.setArchived(context, task.id, archived) }) { Icon(if (archived) Icons.Default.Unarchive else Icons.Default.Archive, "آرشیو") }
             IconButton(delete) { Icon(Icons.Default.Delete, "حذف") }
         }
     }
