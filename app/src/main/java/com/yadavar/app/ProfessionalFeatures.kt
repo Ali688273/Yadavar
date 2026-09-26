@@ -102,7 +102,7 @@ fun ProfessionalScreen(
                 }
             }
             3 -> HabitPanel(context)
-            4 -> FocusPanel()
+            4 -> FocusPanel(context, tasks)
             5 -> StatsPanel(tasks)
             6 -> ToolsPanel(context)
             else -> ExtraFeaturesScreen(context, tasks, onAdd, onUpdate, onDelete)
@@ -335,25 +335,37 @@ Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
 }
 
 @Composable
-private fun FocusPanel() {
-    var seconds by remember { mutableIntStateOf(25 * 60) }
+private fun FocusPanel(context: Context, tasks: List<TodoItem>) {
+    var mode by remember { mutableStateOf("تمرکز") }
+    var minutes by remember { mutableIntStateOf(25) }
+    var seconds by remember { mutableIntStateOf(0) }
     var running by remember { mutableStateOf(false) }
+    var cycles by remember { mutableIntStateOf(0) }
+    var selectedTask by remember { mutableIntStateOf(-1) }
     LaunchedEffect(running) {
-        while (running && seconds > 0) {
+        while (running) {
             kotlinx.coroutines.delay(1000)
-            seconds--
+            if (seconds > 0) seconds-- else if (minutes > 0) minutes-- else {
+                if (mode == "تمرکز") { cycles++; ExtraFeaturesStore.saveUndo(context, tasks.firstOrNull { it.id == selectedTask } ?: TodoItem(-1,"جلسه تمرکز")); mode="استراحت کوتاه"; minutes=5; seconds=0 }
+                else { mode=if(cycles % 4 == 0) "استراحت بلند" else "تمرکز"; minutes=if(mode=="استراحت بلند")15 else 25; seconds=0 }
+            }
         }
-        if (seconds == 0) running = false
     }
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        Text("پومودورو", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text("%02d:%02d".format(seconds / 60, seconds % 60), fontSize = 48.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { running = !running }) { Text(if (running) "توقف" else "شروع") }
-            OutlinedButton(onClick = { running = false; seconds = 25 * 60 }) { Text("بازنشانی") }
+    Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)){
+        Text("پومودورو کامل",fontSize=22.sp,fontWeight=FontWeight.Bold)
+        Text(mode,fontSize=18.sp)
+        Text("%02d:%02d".format(minutes,seconds),fontSize=48.sp)
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
+            Button({running=!running}){Text(if(running)"توقف" else "شروع")}
+            OutlinedButton({running=false;mode="تمرکز";minutes=25;seconds=0}){Text("بازنشانی")}
         }
-        Spacer(Modifier.height(16.dp))
-        Text("ماتریس اهمیت/فوریت: مهم+فوری را اول انجام بده، مهم+غیرفوری را برنامه‌ریزی کن.")
+        Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){
+            FilterChip(mode=="تمرکز",{mode="تمرکز";minutes=25;seconds=0},label={Text("تمرکز")})
+            FilterChip(mode=="استراحت کوتاه",{mode="استراحت کوتاه";minutes=5;seconds=0},label={Text("کوتاه")})
+            FilterChip(mode=="استراحت بلند",{mode="استراحت بلند";minutes=15;seconds=0},label={Text("بلند")})
+        }
+        Text("چرخه‌های کامل: " + cycles)
+        tasks.filter{!it.done}.take(8).forEach { t -> TextButton({selectedTask=t.id}){Text(if(selectedTask==t.id)"✓ ":"")+"اتصال به: "+t.title} }
     }
 }
 
