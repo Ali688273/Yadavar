@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import org.json.JSONObject
+import java.security.MessageDigest
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -70,7 +71,12 @@ object ExtraFeaturesStore {
     fun weeklyGoal(c:Context):Int=p(c).getInt("weekly_goal",10)
     fun setWeeklyGoal(c:Context,v:Int)=p(c).edit().putInt("weekly_goal",v.coerceIn(1,999)).apply()
     fun pin(c:Context):String=p(c).getString("app_pin","").orEmpty()
-    fun setPin(c:Context,v:String)=p(c).edit().putString("app_pin",v.filter(Char::isDigit).take(8)).apply()
+    fun setPin(c:Context,v:String)=p(c).edit().putString("app_pin",hashPin(v.filter(Char::isDigit).take(8))).apply()
+    fun verifyPin(c:Context,v:String):Boolean {
+        val stored=pin(c)
+        return stored.isNotBlank() && stored==hashPin(v.filter(Char::isDigit).take(8))
+    }
+    private fun hashPin(v:String):String=MessageDigest.getInstance("SHA-256").digest(v.toByteArray(Charsets.UTF_8)).joinToString(""){"%02x".format(it)}
 }
 
 @Composable
