@@ -220,6 +220,7 @@ fun YadavarApp(context: Context) {
                 toggle = { id ->
                     val i = tasks.indexOfFirst { it.id == id }
                     if (i >= 0) {
+                        ExtraFeaturesStore.saveUndo(context, tasks[i])
                         tasks[i] = tasks[i].copy(done = !tasks[i].done)
                         saveT()
                     }
