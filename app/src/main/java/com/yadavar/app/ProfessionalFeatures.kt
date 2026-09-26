@@ -40,14 +40,14 @@ fun ProfessionalScreen(
     val today = LocalDate.now()
     val overdue = tasks.count { !it.done && parseDate(it.dueDate)?.isBefore(today) == true }
     val todayTasks = tasks.filter { t ->
-        !ExtraFeaturesStore.archived(context).contains(t.id) &&
         val due = parseDate(t.dueDate)
-        due == today || (t.dueDate.isBlank() && !t.done)
+        !ExtraFeaturesStore.archived(context).contains(t.id) &&
+            (due == today || (t.dueDate.isBlank() && !t.done))
     }
     val visible = tasks.filter { t ->
-        !ExtraFeaturesStore.archived(context).contains(t.id) &&
         val q = query.trim()
         val matchesQ = q.isBlank() || t.title.contains(q, true) || t.tags.contains(q, true) || t.note.contains(q, true)
+        val notArchived = !ExtraFeaturesStore.archived(context).contains(t.id)
         val matchesFilter = when (filter) {
             "open" -> !t.done
             "done" -> t.done
@@ -56,7 +56,7 @@ fun ProfessionalScreen(
             "today" -> parseDate(t.dueDate) == today
             else -> true
         }
-        matchesQ && matchesFilter
+        notArchived && matchesQ && matchesFilter
     }.let { list ->
         when (sort) {
             "priority" -> list.sortedByDescending { priorityRank(it.priority) }
