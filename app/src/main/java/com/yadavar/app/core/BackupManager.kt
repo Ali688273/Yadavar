@@ -77,6 +77,11 @@ object BackupManager {
         extra.put("templates", ep.getString("templates", "").orEmpty())
         extra.put("weeklyGoal", ep.getInt("weekly_goal", 10))
         extra.put("appPin", ep.getString("app_pin", "").orEmpty())
+        val habitHistory = JSONObject()
+        loadHabits(prefs).keys.forEach { name ->
+            habitHistory.put(name, JSONArray(prefs.getStringSet("habit_dates_" + name, emptySet()) ?: emptySet<String>()))
+        }
+        extra.put("habitHistory", habitHistory)
         root.put("extra", extra)
         return root.toString(2)
     }
@@ -127,6 +132,16 @@ object BackupManager {
             .putInt("weekly_goal", ex.optInt("weeklyGoal", 10).coerceIn(1,999))
             .putString("app_pin", ex.optString("appPin", ""))
             .apply()
+        val history = ex.optJSONObject("habitHistory")
+        if (history != null) {
+            val keys = history.keys()
+            while (keys.hasNext()) {
+                val name = keys.next()
+                val a = history.optJSONArray(name) ?: JSONArray()
+                val set = (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }.toSet()
+                ep.edit().putStringSet("habit_dates_" + name, set).apply()
+            }
+        }
         editor.apply()
     }
 
