@@ -18,6 +18,7 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
         val day = intent.getIntExtra(EXTRA_DAY, 0)
         val type = intent.getIntExtra(EXTRA_TYPE, TYPE_TODAY)
         val daysBefore = intent.getIntExtra(EXTRA_DAYS_BEFORE, if (type == TYPE_TODAY) 0 else 1)
+        val reminderOffsets = intent.getStringExtra(EXTRA_REMINDER_OFFSETS) ?: "1,0"
 
         if (id < 0 || !isValidDate(month, day)) return
 
@@ -58,7 +59,7 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
                 .build()
         )
 
-        BirthdayNotificationScheduler.scheduleBirthday(context, id, name, month, day, "1,0")
+        BirthdayNotificationScheduler.scheduleBirthday(context, id, name, month, day, reminderOffsets)
     }
 
     private fun isValidDate(month: Int, day: Int): Boolean {
@@ -82,5 +83,6 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
         const val TYPE_TODAY = 2
         const val TYPE_BEFORE = 3
         const val EXTRA_DAYS_BEFORE = "birthday_days_before"
+        const val EXTRA_REMINDER_OFFSETS = "birthday_reminder_offsets"
     }
 }
