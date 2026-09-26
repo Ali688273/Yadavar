@@ -141,7 +141,7 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
     val pick=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
         if(uri!=null)runCatching{val dir=File(c.filesDir,"attachments/"+id).apply{mkdirs()};val out=File(dir,System.currentTimeMillis().toString()+".bin");c.contentResolver.openInputStream(uri)?.use{input->FileOutputStream(out).use{input.copyTo(it)}};UltimateStore.addFile(c,id,out.absolutePath);refresh++}
     }
-    Column(Modifier.fillMaxSize().padding(12.dp)){Text("پیوست واقعی",fontSize=20.sp);TaskChoice(tasks,id){id=it};Button({pick.launch(arrayOf("*/*"))}){Text("افزودن فایل")};LazyColumn{items(UltimateStore.attachments(c,id)+refresh){p->Row(Modifier.fillMaxWidth().padding(6.dp)){Text(File(p).name,Modifier.weight(1f));IconButton({File(p).delete();UltimateStore.removeFile(c,id,p);refresh++}){Icon(Icons.Default.Delete,null)}}}}}
+    Column(Modifier.fillMaxSize().padding(12.dp)){Text("پیوست واقعی",fontSize=20.sp);TaskChoice(tasks,id){id=it};Button({pick.launch(arrayOf("*/*"))}){Text("افزودن فایل")};LazyColumn{items(UltimateStore.attachments(c,id),key={it+refresh.toString()}){p->Row(Modifier.fillMaxWidth().padding(6.dp)){Text(File(p).name,Modifier.weight(1f));IconButton({File(p).delete();UltimateStore.removeFile(c,id,p);refresh++}){Icon(Icons.Default.Delete,null)}}}}}
 }
 
 @Composable private fun AudioPanel(c:Context,tasks:List<TodoItem>){
@@ -155,7 +155,7 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 
 @Composable private fun HistoryPanel(c:Context){
     var refresh by remember{mutableIntStateOf(0)}
-    Column(Modifier.fillMaxSize().padding(12.dp)){Text("تاریخچه کامل تغییرات",fontSize=20.sp);Button({refresh++}){Text("به‌روزرسانی")};LazyColumn{items(UltimateStore.history(c)+refresh){raw->val o=runCatching{JSONObject(raw)}.getOrNull();if(o!=null)Card(Modifier.fillMaxWidth().padding(3.dp)){Column(Modifier.padding(8.dp)){Text(o.optString("action"));Text("کار: "+o.optString("task"));Text(Date(o.optLong("time")).toString(),fontSize=11.sp)}}}}}}
+    Column(Modifier.fillMaxSize().padding(12.dp)){Text("تاریخچه کامل تغییرات",fontSize=20.sp);Button({refresh++}){Text("به‌روزرسانی")};LazyColumn{items(UltimateStore.history(c),key={it+refresh.toString()}){raw->val o=runCatching{JSONObject(raw)}.getOrNull();if(o!=null)Card(Modifier.fillMaxWidth().padding(3.dp)){Column(Modifier.padding(8.dp)){Text(o.optString("action"));Text("کار: "+o.optString("task"));Text(Date(o.optLong("time")).toString(),fontSize=11.sp)}}}}}}
 }
 
 @Composable private fun DragPanel(c:Context,tasks:List<TodoItem>,update:(TodoItem)->Unit){
@@ -187,7 +187,7 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 
 @Composable private fun TagPanel(c:Context){
     var n by remember{mutableStateOf("")};var h by remember{mutableStateOf("#6750A4")};var refresh by remember{mutableIntStateOf(0)}
-    Column(Modifier.fillMaxSize().padding(12.dp)){Text("برچسب‌های رنگی مستقل",fontSize=20.sp);Row{OutlinedTextField(n,{n=it},Modifier.weight(1f),label={Text("نام")});OutlinedTextField(h,{h=it},Modifier.weight(1f),label={Text("#RRGGBB")});Button({if(n.isNotBlank()){UltimateStore.tag(c,n,h);n="";refresh++}}){Text("+")}};LazyColumn{items(UltimateStore.tags(c).keys().asSequence().toList()+refresh){k->val v=UltimateStore.tags(c).optString(k);Row(Modifier.fillMaxWidth().padding(6.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(22.dp).background(runCatching{Color(android.graphics.Color.parseColor(v))}.getOrDefault(Color.Gray)));Text(k,Modifier.weight(1f));Text(v)}}}}
+    Column(Modifier.fillMaxSize().padding(12.dp)){Text("برچسب‌های رنگی مستقل",fontSize=20.sp);Row{OutlinedTextField(n,{n=it},Modifier.weight(1f),label={Text("نام")});OutlinedTextField(h,{h=it},Modifier.weight(1f),label={Text("#RRGGBB")});Button({if(n.isNotBlank()){UltimateStore.tag(c,n,h);n="";refresh++}}){Text("+")}};LazyColumn{items(UltimateStore.tags(c).keys().asSequence().toList(),key={it+refresh.toString()}){k->val v=UltimateStore.tags(c).optString(k);Row(Modifier.fillMaxWidth().padding(6.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(22.dp).background(runCatching{Color(android.graphics.Color.parseColor(v))}.getOrDefault(Color.Gray)));Text(k,Modifier.weight(1f));Text(v)}}}}
 }
 
 @Composable private fun SearchPanel(c:Context,tasks:List<TodoItem>,update:(TodoItem)->Unit){
