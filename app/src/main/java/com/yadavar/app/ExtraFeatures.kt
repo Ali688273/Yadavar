@@ -1,6 +1,6 @@
 package com.yadavar.app
 
-import android.content.Context
+import android.content.Context\nimport android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -91,8 +91,8 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
     }
 }
 @Composable private fun ReportPanel(tasks:List<TodoItem>){
-    val now=LocalDate.now();val start=now.minusDays(((now.dayOfWeek.value+1)%7).toLong());val week=tasks.count{it.done&&it.dueDate.isNotBlank()&&runCatching{LocalDate.parse(it.dueDate)}.getOrNull() in start..now};val overdue=tasks.count{!it.done&&it.dueDate.isNotBlank()&&runCatching{LocalDate.parse(it.dueDate)}.getOrNull()?.isBefore(now)==true};val done=tasks.count{it.done};val total=tasks.size
-    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("گزارش هفتگی و ماهانه",fontSize=20.sp,fontWeight=FontWeight.Bold)};item{ReportCard("کل کارها",total)};item{ReportCard("انجام‌شده",done)};item{ReportCard("انجام‌شده در هفته جاری",week)};item{ReportCard("عقب‌افتاده",overdue)};item{ReportCard("نرخ تکمیل",if(total==0)0 else done*100/total,"٪")}}
+    val now=LocalDate.now();val start=now.minusDays(((now.dayOfWeek.value+1)%7).toLong());val week=tasks.count{it.done&&it.dueDate.isNotBlank()&&runCatching{LocalDate.parse(it.dueDate)}.getOrNull() in start..now};val month=tasks.count{it.done&&it.dueDate.startsWith(now.toString().substring(0,7))};val overdue=tasks.count{!it.done&&it.dueDate.isNotBlank()&&runCatching{LocalDate.parse(it.dueDate)}.getOrNull()?.isBefore(now)==true};val done=tasks.count{it.done};val total=tasks.size
+    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("گزارش هفتگی و ماهانه",fontSize=20.sp,fontWeight=FontWeight.Bold)};item{ReportCard("کل کارها",total)};item{ReportCard("انجام‌شده",done)};item{ReportCard("انجام‌شده در هفته جاری",week)};item{ReportCard("انجام‌شده در ماه جاری",month)};item{ReportCard("عقب‌افتاده",overdue)};item{ReportCard("نرخ تکمیل",if(total==0)0 else done*100/total,"٪")};item{Button(onClick={val csv="عنوان,وضعیت,اولویت,سررسید\\n"+tasks.joinToString("\\n"){it.title.replace(","," ") + "," + if(it.done)"انجام‌شده" else "باز" + "," + it.priority + "," + it.dueDate};c.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="text/csv";putExtra(Intent.EXTRA_TEXT,csv)},"اشتراک CSV"))}){Icon(Icons.Default.Share,null);Spacer(Modifier.width(6.dp));Text("خروجی CSV")}}}
 }
 @Composable private fun ReportCard(t:String,v:Int,s:String=""){Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(t);Text("$v$s",fontWeight=FontWeight.Bold)}}}
 @Composable private fun TemplatePanel(c:Context,name:String,onName:(String)->Unit,tasks:List<TodoItem>,onAdd:(TodoItem)->Unit){
