@@ -68,7 +68,7 @@ fun ProfessionalScreen(
 
     Column(modifier.fillMaxSize().padding(12.dp)) {
         Text("مدیریت حرفه‌ای", fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Text("امروز: \${jalaliDate(today)} • عقب‌افتاده: \$overdue", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("امروز: ${jalaliDate(today)} • عقب‌افتاده: $overdue", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         ScrollableTabRow(selectedTabIndex = section, edgePadding = 0.dp) {
             listOf("امروز", "تقویم", "همه کارها", "عادت‌ها", "تمرکز", "آمار", "ابزارها", "تکمیل").forEachIndexed { i, title ->
@@ -125,7 +125,7 @@ private fun TodayPlan(context: Context, tasks: List<TodoItem>, overdue: Int, onE
             Text("امروز من", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text("کارهای امروز + کارهای عقب‌افتاده را یکجا ببین.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            if (overdue > 0) Text("⚠ \$overdue کار عقب‌افتاده داری.", color = MaterialTheme.colorScheme.error)
+            if (overdue > 0) Text("⚠ $overdue کار عقب‌افتاده داری.", color = MaterialTheme.colorScheme.error)
             if (tasks.isEmpty()) Text("برای امروز کاری نداری؛ زمان را برای یک هدف مهم استفاده کن.")
             tasks.sortedWith(compareBy<TodoItem> { it.done }.thenByDescending { priorityRank(it.priority) }).forEach {
                 AdvancedTaskCard(context, it, { onToggle(it) }, { onEdit(it) }, {})
@@ -174,7 +174,7 @@ private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: L
             }
         }
     } else {
-        Text("تاریخ انتخاب‌شده: \${jalaliDate(selected)}", fontWeight = FontWeight.Bold)
+        Text("تاریخ انتخاب‌شده: ${jalaliDate(selected)}", fontWeight = FontWeight.Bold)
         val dayTasks = tasks.filter { parseDate(it.dueDate) == selected }
         if (dayTasks.isEmpty()) Text("کاری برای این روز ثبت نشده.")
         dayTasks.forEach { AdvancedTaskCard(context, it, {}, { onEdit(it) }, {}) }
@@ -333,7 +333,7 @@ private fun IdeasPanel(context: Context) {
         Text("لیست خرید: از دسته «خرید» برای نگهداری اقلام استفاده کن.")
         Text("مکان در هر کار ذخیره می‌شود و برای مرحله Geofence آماده است.")
         Button(onClick = {
-            val body = "یادآور\\nتعداد کارها: \${loadTasks(context).size}\\nتعداد تولدها: \${loadBirthdays(context).size}"
+            val body = "یادآور\nتعداد کارها: ${loadTasks(context).size}\nتعداد تولدها: ${loadBirthdays(context).size}"
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }, "اشتراک‌گذاری پشتیبان"))
         }) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(6.dp)); Text("خروجی پشتیبان") }
     }
@@ -341,7 +341,7 @@ private fun IdeasPanel(context: Context) {
 
 private fun parseDate(value: String): LocalDate? = try { if (value.isBlank()) null else LocalDate.parse(value, ISO) } catch (_: DateTimeParseException) { null }
 private fun priorityRank(value: String): Int = when (value) { "high" -> 3; "normal" -> 2; else -> 1 }
-private fun jalaliDate(date: LocalDate): String { val (jy, jm, jd) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth); return "\$jy/\$jm/\$jd" }
+private fun jalaliDate(date: LocalDate): String { val (jy, jm, jd) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth); return "$jy/$jm/$jd" }
 private fun jalaliDay(date: LocalDate): String { val (_, _, d) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth); return d.toString() }
 
 private fun gregorianToJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
