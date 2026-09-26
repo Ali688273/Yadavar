@@ -8,13 +8,14 @@ import com.yadavar.app.TodoItem
 
 object BackupManager {
 
-    private const val BACKUP_VERSION = 2
+    private const val BACKUP_VERSION = 3
 
     data class BackupData(
         val tasks: List<TodoItem>,
         val birthdays: List<StoredBirthday>,
         val habits: Map<String, Int>,
-        val shopping: List<String>
+        val shopping: List<String>,
+        val settings: Pair<Boolean, Boolean> = true to false
     )
 
     fun createBackup(context: Context): String {
@@ -23,6 +24,7 @@ object BackupManager {
             .put("format", "yadavar-backup")
             .put("version", BACKUP_VERSION)
             .put("createdAt", System.currentTimeMillis())
+            .put("settings", JSONObject().put("smartAutoCarry", prefs.getBoolean("smart_auto_carry", true)).put("compactMode", prefs.getBoolean("compact_mode", false)))
 
         val tasks = JSONArray()
         loadTasksFromPrefs(prefs).forEach { task ->
@@ -105,6 +107,8 @@ object BackupManager {
         )
 
         editor.putString("shopping", data.shopping.map(::clean).filter { it.isNotBlank() }.joinToString("\n"))
+        editor.putBoolean("smart_auto_carry", data.settings.first)
+        editor.putBoolean("compact_mode", data.settings.second)
         editor.apply()
     }
 
@@ -182,11 +186,14 @@ object BackupManager {
             if (value.isNotBlank()) shopping += value
         }
 
+        val settingsJson = root.optJSONObject("settings")
+        val settings = (settingsJson?.optBoolean("smartAutoCarry", true) ?: true) to (settingsJson?.optBoolean("compactMode", false) ?: false)
         return BackupData(
             tasks = tasks.distinctBy { it.id },
             birthdays = birthdays.distinctBy { it.id },
             habits = habits,
-            shopping = shopping.distinct()
+            shopping = shopping.distinct(),
+            settings = settings
         )
     }
 
