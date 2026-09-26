@@ -55,7 +55,7 @@ object BackupManager {
                 .put("id", birthday.id)
                 .put("name", birthday.name)
                 .put("month", birthday.month)
-                .put("day", birthday.day))
+                .put("day", birthday.day).put("year", birthday.year ?: JSONObject.NULL).put("reminderOffsets", birthday.reminderOffsets))
         }
 
         val habits = JSONObject()
@@ -76,7 +76,7 @@ object BackupManager {
         extra.put("archivedIds", JSONArray(ep.getStringSet("archived_ids", emptySet()) ?: emptySet<String>()))
         extra.put("templates", ep.getString("templates", "").orEmpty())
         extra.put("weeklyGoal", ep.getInt("weekly_goal", 10))
-        extra        val habitHistory = JSONObject()
+        val habitHistory = JSONObject()
         loadHabits(prefs).keys.forEach { name ->
             habitHistory.put(name, JSONArray(prefs.getStringSet("habit_dates_" + name, emptySet()) ?: emptySet<String>()))
         }
@@ -111,7 +111,7 @@ object BackupManager {
         editor.putString("tasks_date", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()))
 
         editor.putString("birthdays", data.birthdays.joinToString("\n") {
-            it.id.toString() + "\t" + clean(it.name) + "\t" + it.month + "\t" + it.day
+            it.id.toString() + "\t" + clean(it.name) + "\t" + it.month + "\t" + it.day + "\t" + (it.year?.toString() ?: "") + "\t" + it.reminderOffsets
         })
 
         editor.putString(
@@ -196,7 +196,7 @@ object BackupManager {
             val month = o.optInt("month", 0)
             val day = o.optInt("day", 0)
             if (id >= 0 && name.isNotBlank() && month in 1..12 && day in 1..31) {
-                birthdays += StoredBirthday(id, name, month, day)
+                birthdays += StoredBirthday(id, name, month, day, o.optInt("year", 0).takeIf { it in 1900..2200 }, o.optString("reminderOffsets", "1,0").ifBlank { "1,0" })
             }
         }
 
