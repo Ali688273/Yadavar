@@ -72,7 +72,7 @@ object BackupManager {
         root.put("shopping", shopping)
         val extra = JSONObject()
         val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
-        extra.put("inbox", JSONArray(ep.getString("inbox", "").orEmpty().split("\\n").filter { it.isNotBlank() }))
+        extra.put("inbox", JSONArray(ep.getString("inbox", "").orEmpty().split("\n").filter { it.isNotBlank() }))
         extra.put("archivedIds", JSONArray(ep.getStringSet("archived_ids", emptySet()) ?: emptySet<String>()))
         extra.put("templates", ep.getString("templates", "").orEmpty())
         extra.put("weeklyGoal", ep.getInt("weekly_goal", 10))
