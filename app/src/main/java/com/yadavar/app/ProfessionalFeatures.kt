@@ -39,11 +39,13 @@ fun ProfessionalScreen(
     var sort by remember { mutableStateOf("due") }
     val today = LocalDate.now()
     val overdue = tasks.count { !it.done && parseDate(it.dueDate)?.isBefore(today) == true }
-    val todayTasks = tasks.filter { t ->\n        !ExtraFeaturesStore.archived(context).contains(t.id) &&
+    val todayTasks = tasks.filter { t ->
+        !ExtraFeaturesStore.archived(context).contains(t.id) &&
         val due = parseDate(t.dueDate)
         due == today || (t.dueDate.isBlank() && !t.done)
     }
-    val visible = tasks.filter { t ->\n        !ExtraFeaturesStore.archived(context).contains(t.id) &&
+    val visible = tasks.filter { t ->
+        !ExtraFeaturesStore.archived(context).contains(t.id) &&
         val q = query.trim()
         val matchesQ = q.isBlank() || t.title.contains(q, true) || t.tags.contains(q, true) || t.note.contains(q, true)
         val matchesFilter = when (filter) {
@@ -75,10 +77,10 @@ fun ProfessionalScreen(
         }
         Spacer(Modifier.height(10.dp))
         when (section) {
-            0 -> TodayPlan(tasks = todayTasks, overdue = overdue, onEdit = { editing = it }, onToggle = onUpdate, onCreate = {
+            0 -> TodayPlan(context, tasks = todayTasks, overdue = overdue, onEdit = { editing = it }, onToggle = onUpdate, onCreate = {
                 editing = TodoItem(id = -1, title = "", startDate = today.toString(), dueDate = today.toString())
             })
-            1 -> CalendarPlanner(tasks = tasks, selected = selectedDate, onSelected = { selectedDate = it }, onEdit = { editing = it })
+            1 -> CalendarPlanner(context, tasks = tasks, selected = selectedDate, onSelected = { selectedDate = it }, onEdit = { editing = it })
             2 -> {
                 OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("جستجو در عنوان، یادداشت و برچسب") }, leadingIcon = { Icon(Icons.Default.Search, null) })
                 Spacer(Modifier.height(8.dp))
@@ -117,7 +119,7 @@ fun ProfessionalScreen(
 }
 
 @Composable
-private fun TodayPlan(tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) -> Unit, onToggle: (TodoItem) -> Unit, onCreate: () -> Unit) {
+private fun TodayPlan(context: Context, tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) -> Unit, onToggle: (TodoItem) -> Unit, onCreate: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("امروز من", fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -134,7 +136,7 @@ private fun TodayPlan(tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) ->
 }
 
 @Composable
-private fun CalendarPlanner(tasks: List<TodoItem>, selected: LocalDate, onSelected: (LocalDate) -> Unit, onEdit: (TodoItem) -> Unit) {
+private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: LocalDate, onSelected: (LocalDate) -> Unit, onEdit: (TodoItem) -> Unit) {
     var mode by remember { mutableStateOf("month") }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("day" to "روز", "week" to "هفته", "month" to "ماه").forEach { (v, l) ->
@@ -194,7 +196,8 @@ private fun AdvancedTaskCard(context: Context, task: TodoItem, toggle: () -> Uni
                 if (meta.isNotBlank()) Text(meta, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (task.note.isNotBlank()) Text(task.note, fontSize = 12.sp)
             }
-            IconButton(edit) { Icon(Icons.Default.Edit, "ویرایش") }\n            IconButton({ ExtraFeaturesStore.setArchived(context, task.id, !ExtraFeaturesStore.archived(context).contains(task.id)) }) { Icon(if (ExtraFeaturesStore.archived(context).contains(task.id)) Icons.Default.Unarchive else Icons.Default.Archive, "آرشیو") }
+            IconButton(edit) { Icon(Icons.Default.Edit, "ویرایش") }
+            IconButton({ ExtraFeaturesStore.setArchived(context, task.id, !ExtraFeaturesStore.archived(context).contains(task.id)) }) { Icon(if (ExtraFeaturesStore.archived(context).contains(task.id)) Icons.Default.Unarchive else Icons.Default.Archive, "آرشیو") }
             IconButton(delete) { Icon(Icons.Default.Delete, "حذف") }
         }
     }
@@ -320,7 +323,9 @@ private fun IdeasPanel(context: Context) {
         Text("لیست خرید: از دسته «خرید» برای نگهداری اقلام استفاده کن.")
         Text("مکان در هر کار ذخیره می‌شود و برای مرحله Geofence آماده است.")
         Button(onClick = {
-            val body = "یادآور\\nتعداد کارها: \${loadTasks(context).size}\\nتعداد تولدها: \${loadBirthdays(context).size}"
+            val body = "یادآور\
+تعداد کارها: \${loadTasks(context).size}\
+تعداد تولدها: \${loadBirthdays(context).size}"
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }, "اشتراک‌گذاری پشتیبان"))
         }) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(6.dp)); Text("خروجی پشتیبان") }
     }
@@ -427,7 +432,9 @@ private fun ToolsPanel(context: Context) {
                     Text("پشتیبان سریع", fontWeight = FontWeight.Bold)
                     Text("خلاصه داده‌ها را برای نگهداری یا ارسال کپی کن.")
                     Button(onClick = {
-                        val body = "یادآور\nکارها: " + loadTasks(context).size + "\nتولدها: " + loadBirthdays(context).size
+                        val body = "یادآور
+کارها: " + loadTasks(context).size + "
+تولدها: " + loadBirthdays(context).size
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, body)
@@ -439,15 +446,19 @@ private fun ToolsPanel(context: Context) {
     }
 }
 private fun loadHabits(prefs: android.content.SharedPreferences): Map<String, Int> =
-    prefs.getString("habits", "").orEmpty().split("\n").mapNotNull {
+    prefs.getString("habits", "").orEmpty().split("
+").mapNotNull {
         val x = it.split("\t", limit = 2)
         if (x.size == 2) x[0] to (x[1].toIntOrNull() ?: 0) else null
     }.toMap()
 private fun saveHabits(prefs: android.content.SharedPreferences, habits: Map<String, Int>) {
-    prefs.edit().putString("habits", habits.entries.joinToString("\n") { it.key.replace("\t", " ") + "\t" + it.value }).apply()
+    prefs.edit().putString("habits", habits.entries.joinToString("
+") { it.key.replace("\t", " ") + "\t" + it.value }).apply()
 }
 private fun loadShopping(context: Context): List<String> =
-    context.getSharedPreferences("yadavar_data", 0).getString("shopping", "").orEmpty().split("\n").filter { it.isNotBlank() }
+    context.getSharedPreferences("yadavar_data", 0).getString("shopping", "").orEmpty().split("
+").filter { it.isNotBlank() }
 private fun saveShopping(context: Context, values: List<String>) {
-    context.getSharedPreferences("yadavar_data", 0).edit().putString("shopping", values.joinToString("\n")).apply()
+    context.getSharedPreferences("yadavar_data", 0).edit().putString("shopping", values.joinToString("
+")).apply()
 }
