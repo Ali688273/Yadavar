@@ -15,7 +15,8 @@ object BackupManager {
         val birthdays: List<StoredBirthday>,
         val habits: Map<String, Int>,
         val shopping: List<String>,
-        val settings: Pair<Boolean, Boolean> = true to false,\n        val extra: JSONObject = JSONObject()
+        val settings: Pair<Boolean, Boolean> = true to false,
+        val extra: JSONObject = JSONObject()
     )
 
     fun createBackup(context: Context): String {
@@ -68,7 +69,15 @@ object BackupManager {
         root.put("tasks", tasks)
         root.put("birthdays", birthdays)
         root.put("habits", habits)
-        root.put("shopping", shopping)\n        val extra = JSONObject()\n        val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)\n        extra.put("inbox", JSONArray(ep.getString("inbox", "").orEmpty().split("\\n").filter { it.isNotBlank() }))\n        extra.put("archivedIds", JSONArray(ep.getStringSet("archived_ids", emptySet()) ?: emptySet<String>()))\n        extra.put("templates", ep.getString("templates", "").orEmpty())\n        extra.put("weeklyGoal", ep.getInt("weekly_goal", 10))\n        extra.put("appPin", ep.getString("app_pin", "").orEmpty())\n        root.put("extra", extra)
+        root.put("shopping", shopping)
+        val extra = JSONObject()
+        val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
+        extra.put("inbox", JSONArray(ep.getString("inbox", "").orEmpty().split("\\n").filter { it.isNotBlank() }))
+        extra.put("archivedIds", JSONArray(ep.getStringSet("archived_ids", emptySet()) ?: emptySet<String>()))
+        extra.put("templates", ep.getString("templates", "").orEmpty())
+        extra.put("weeklyGoal", ep.getInt("weekly_goal", 10))
+        extra.put("appPin", ep.getString("app_pin", "").orEmpty())
+        root.put("extra", extra)
         return root.toString(2)
     }
 
@@ -187,7 +196,8 @@ object BackupManager {
         }
 
         val settingsJson = root.optJSONObject("settings")
-        val settings = (settingsJson?.optBoolean("smartAutoCarry", true) ?: true) to (settingsJson?.optBoolean("compactMode", false) ?: false)\n        val extra = root.optJSONObject("extra") ?: JSONObject()
+        val settings = (settingsJson?.optBoolean("smartAutoCarry", true) ?: true) to (settingsJson?.optBoolean("compactMode", false) ?: false)
+        val extra = root.optJSONObject("extra") ?: JSONObject()
         return BackupData(
             tasks = tasks.distinctBy { it.id },
             birthdays = birthdays.distinctBy { it.id },
