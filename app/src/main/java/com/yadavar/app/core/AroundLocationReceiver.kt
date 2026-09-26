@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
+import com.yadavar.app.TodoItem
 
 class AroundLocationReceiver: BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -28,7 +29,8 @@ class AroundLocationReceiver: BroadcastReceiver() {
     private fun loadTasks(context: Context): List<TodoItem> {
         val raw=context.getSharedPreferences("yadavar_data",0).getString("tasks",null) ?: return emptyList()
         return raw.split("\n").mapNotNull{r->
-            val x=r.split("\t",limit=17); if(x.size<3) null else TodoItem(x[0].toIntOrNull()?:return@mapNotNull null,x[2],x.getOrNull(1)=="1")
+            val x=r.split("\t",limit=17)
+            if(x.size<3) null else TodoItem(x[0].toIntOrNull()?:return@mapNotNull null,x[2],x.getOrNull(1)=="1")
         }
     }
 }
