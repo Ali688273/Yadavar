@@ -97,6 +97,7 @@ fun YadavarApp(context: Context) {
     var taskQuery by remember { mutableStateOf("") }
     var unlocked by rememberSaveable { mutableStateOf(ExtraFeaturesStore.pin(context).isBlank()) }
     var unlockPin by remember { mutableStateOf("") }
+    var pendingBackup by remember { mutableStateOf<BackupManager.BackupData?>(null) }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
     val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
@@ -119,19 +120,8 @@ fun YadavarApp(context: Context) {
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        runCatching {
-            val backup = BackupManager.restoreFromUri(context, uri)
-            BackupManager.applyBackup(context, backup)
-            tasks.clear()
-            tasks.addAll(loadTasks(context))
-            birthdays.clear()
-            birthdays.addAll(loadBirthdays(context))
-            TaskNotificationScheduler.scheduleAll(context, tasks)
-            BirthdayNotificationScheduler.scheduleAll(context, birthdays)
-            Toast.makeText(context, "بازیابی انجام شد: " + backup.tasks.size + " کار و " + backup.birthdays.size + " تولد", Toast.LENGTH_LONG).show()
-        }.onFailure {
-            Toast.makeText(context, "بازیابی انجام نشد: " + (it.message ?: "فایل نامعتبر است"), Toast.LENGTH_LONG).show()
-        }
+        runCatching { pendingBackup = BackupManager.restoreFromUri(context, uri) }
+            .onFailure { Toast.makeText(context, "فایل نامعتبر است: " + (it.message ?: "خطا"), Toast.LENGTH_LONG).show() }
     }
 
 
@@ -255,6 +245,15 @@ fun YadavarApp(context: Context) {
                 modifier = Modifier.padding(pad)
             )
         }
+    }
+
+    if (pendingBackup != null) {
+        val data = pendingBackup!!
+        var includeTasks by remember { mutableStateOf(true) }
+        var includeBirthdays by remember { mutableStateOf(true) }
+        var includeHabits by remember { mutableStateOf(true) }
+        var includeShopping by remember { mutableStateOf(true) }
+        AlertDialog(onDismissRequest={pendingBackup=null},title={Text("پیش‌نمایش و انتخاب بازیابی")},text={Column(verticalArrangement=Arrangement.spacedBy(5.dp)){Text("فایل معتبر است: "+data.tasks.size+" کار • "+data.birthdays.size+" تولد • "+data.habits.size+" عادت • "+data.shopping.size+" خرید");Row(verticalAlignment=Alignment.CenterVertically){Text("کارها",Modifier.weight(1f));Switch(includeTasks,{includeTasks=it})};Row(verticalAlignment=Alignment.CenterVertically){Text("تولدها",Modifier.weight(1f));Switch(includeBirthdays,{includeBirthdays=it})};Row(verticalAlignment=Alignment.CenterVertically){Text("عادت‌ها",Modifier.weight(1f));Switch(includeHabits,{includeHabits=it})};Row(verticalAlignment=Alignment.CenterVertically){Text("خرید",Modifier.weight(1f));Switch(includeShopping,{includeShopping=it})}}},confirmButton={Button(onClick={BackupManager.applyBackup(context,data,includeTasks,includeBirthdays,includeHabits,includeShopping);tasks.clear();tasks.addAll(loadTasks(context));birthdays.clear();birthdays.addAll(loadBirthdays(context));pendingBackup=null;TaskNotificationScheduler.scheduleAll(context,tasks);BirthdayNotificationScheduler.scheduleAll(context,birthdays)}){Text("بازیابی")}},dismissButton={TextButton({pendingBackup=null}){Text("انصراف")}})
     }
 
     if (!unlocked) {
