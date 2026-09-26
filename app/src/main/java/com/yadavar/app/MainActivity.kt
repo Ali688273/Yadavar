@@ -127,6 +127,7 @@ fun YadavarApp(context: Context) {
 
     fun saveT() {
         saveTasks(context, tasks)
+        UltimateHistory.sync(context, tasks)
         TaskNotificationScheduler.scheduleAll(context, tasks)
         refreshWidget(context)
     }
