@@ -129,6 +129,21 @@ fun YadavarApp(context: Context) {
     }
 
     LaunchedEffect(Unit) {
+        if (context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE).getBoolean("smart_auto_carry", true)) {
+            val today = java.time.LocalDate.now()
+            var changed = false
+            for (i in tasks.indices) {
+                val t = tasks[i]
+                if (!t.done && t.dueDate.isNotBlank()) {
+                    val due = runCatching { java.time.LocalDate.parse(t.dueDate) }.getOrNull()
+                    if (due != null && due.isBefore(today)) {
+                        tasks[i] = t.copy(dueDate = today.toString())
+                        changed = true
+                    }
+                }
+            }
+            if (changed) saveT()
+        }
         BirthdayNotificationScheduler.scheduleAll(context, birthdays)
         TaskNotificationScheduler.scheduleAll(context, tasks)
     }
