@@ -283,9 +283,19 @@ private fun HabitPanel(context: Context) {
                     Text("🔥 $streak")
                     Spacer(Modifier.width(6.dp))
                     Button(onClick = {
-                        habits = habits + (name to streak + 1)
-                        saveHabits(prefs, habits)
+                        val today = LocalDate.now().toString()
+                        val key = "habit_dates_" + name
+                        val dates = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
+                        if (today !in dates) {
+                            dates.add(today)
+                            prefs.edit().putStringSet(key, dates).apply()
+                            val newStreak = calculateHabitStreak(dates)
+                            habits = habits + (name to newStreak)
+                            saveHabits(prefs, habits)
+                        }
                     }) { Text("امروز") }
+                    val dates = prefs.getStringSet("habit_dates_" + name, emptySet()) ?: emptySet()
+                    Text("۷ روز اخیر: " + (0..6).count { LocalDate.now().minusDays(it.toLong()).toString() in dates } + " • بهترین: " + calculateBestStreak(dates), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -453,4 +463,28 @@ private fun loadShopping(context: Context): List<String> =
     context.getSharedPreferences("yadavar_data", 0).getString("shopping", "").orEmpty().split("\n").filter { it.isNotBlank() }
 private fun saveShopping(context: Context, values: List<String>) {
     context.getSharedPreferences("yadavar_data", 0).edit().putString("shopping", values.joinToString("\n")).apply()
+}
+
+
+private fun calculateHabitStreak(dates: Set<String>): Int {
+    var streak = 0
+    var day = LocalDate.now()
+    while (day.toString() in dates) {
+        streak++
+        day = day.minusDays(1)
+    }
+    return streak
+}
+
+private fun calculateBestStreak(dates: Set<String>): Int {
+    var best = 0
+    var current = 0
+    var day = dates.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }.minOrNull()
+    while (day != null) {
+        if (day.toString() in dates) current++ else current = 0
+        best = maxOf(best, current)
+        day = day.plusDays(1)
+        if (day.isAfter(LocalDate.now())) break
+    }
+    return best
 }
