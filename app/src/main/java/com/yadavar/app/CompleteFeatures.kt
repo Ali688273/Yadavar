@@ -70,6 +70,15 @@ fun CompleteFeaturesScreen(
             }
         }
         item {
+            FeatureCard("🧠 پیشنهاد اولویت آفلاین", "برنامه اولویت پیشنهادی می‌دهد اما اولویت انتخابی شما را تغییر نمی‌دهد.") {
+                val ranked = tasks.filter { !it.done }.sortedByDescending { smartPriorityScore(it, today) }.take(6)
+                if (ranked.isEmpty()) Text("کاری برای پیشنهاد وجود ندارد.")
+                ranked.forEach { t ->
+                    Text("• " + t.title + " — " + smartPriorityLabel(t, today))
+                }
+            }
+        }
+        item {
             FeatureCard("🔔 یادآوری هوشمند", "یادآوری‌های نزدیک و خلاصه روز در همین دستگاه مدیریت می‌شوند.") {
                 Text("اعلان‌ها بدون سرور و با AlarmManager دستگاه کار می‌کنند.")
                 Text(if (upcoming.isNotEmpty()) upcoming.size.toString() + " یادآوری در دو ساعت آینده نزدیک است." else "در دو ساعت آینده یادآوری نزدیکی ثبت نشده است.")
@@ -165,6 +174,32 @@ private fun FeatureCard(title: String, description: String, content: @Composable
 
 private fun parseAdvancedDate(value: String): LocalDate? =
     runCatching { if (value.isBlank()) null else LocalDate.parse(value) }.getOrNull()
+
+private fun smartPriorityScore(task: TodoItem, today: LocalDate): Int {
+    var score = when (task.priority) { "high" -> 40; "normal" -> 20; else -> 5 }
+    parseAdvancedDate(task.dueDate)?.let {
+        val days = java.time.temporal.ChronoUnit.DAYS.between(today, it).toInt()
+        score += when {
+            days < 0 -> 60
+            days == 0 -> 50
+            days <= 2 -> 35
+            days <= 7 -> 20
+            else -> 5
+        }
+    }
+    if (task.reminders.isNotEmpty()) score += 10
+    if (task.subtasks.isNotBlank()) score += 3
+    if (task.tags.contains("فوری")) score += 15
+    return score
+}
+
+private fun smartPriorityLabel(task: TodoItem, today: LocalDate): String =
+    when {
+        parseAdvancedDate(task.dueDate)?.isBefore(today) == true -> "فوری؛ عقب‌افتاده"
+        task.priority == "high" -> "مهم"
+        parseAdvancedDate(task.dueDate) == today -> "امروز"
+        else -> "عادی"
+    }
 
 private fun reminderMinutesFromNow(hour: Int, minute: Int): Int {
     val now = java.time.LocalTime.now()
