@@ -92,7 +92,7 @@ object BackupManager {
         return parseBackup(json)
     }
 
-    fun applyBackup(context: Context, data: BackupData) {
+    fun applyBackup(context: Context, data: BackupData, includeTasks: Boolean = true, includeBirthdays: Boolean = true, includeHabits: Boolean = true, includeShopping: Boolean = true) {
         val prefs = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE)
         val editor = prefs.edit()
 
@@ -114,12 +114,12 @@ object BackupManager {
             it.id.toString() + "\t" + clean(it.name) + "\t" + it.month + "\t" + it.day + "\t" + (it.year?.toString() ?: "") + "\t" + it.reminderOffsets
         })
 
-        editor.putString(
+        if (includeHabits) editor.putString(
             "habits",
             data.habits.entries.joinToString("\n") { clean(it.key) + "\t" + it.value.coerceAtLeast(0) }
         )
 
-        editor.putString("shopping", data.shopping.map(::clean).filter { it.isNotBlank() }.joinToString("\n"))
+        if (includeShopping) editor.putString("shopping", data.shopping.map(::clean).filter { it.isNotBlank() }.joinToString("\n"))
         editor.putBoolean("smart_auto_carry", data.settings.first)
         editor.putBoolean("compact_mode", data.settings.second)
         val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
