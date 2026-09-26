@@ -146,11 +146,12 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 
 @Composable private fun AudioPanel(c:Context,tasks:List<TodoItem>){
     var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)};var recording by remember{mutableStateOf(false)};var rec by remember{mutableStateOf<MediaRecorder?>(null)};var text by remember{mutableStateOf("")}
+    val audioPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){ok->if(ok){startRecordingForUltimate(c,id){m,path->rec=m;recording=true;UltimateStore.addFile(c,id,path)}}}
     val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r->text=r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty();UltimateStore.putText(c,"speech_"+id,text)}
     fun start(){val dir=File(c.filesDir,"audio/"+id).apply{mkdirs()};val f=File(dir,System.currentTimeMillis().toString()+".m4a");val m=MediaRecorder();m.setAudioSource(MediaRecorder.AudioSource.MIC);m.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);m.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);m.setOutputFile(f.absolutePath);m.prepare();m.start();rec=m;recording=true;UltimateStore.addFile(c,id,f.absolutePath)}
     fun stop(){runCatching{rec?.stop();rec?.release()};rec=null;recording=false}
     DisposableEffect(Unit){onDispose{runCatching{rec?.stop();rec?.release()}}}
-    Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text("ضبط و گفتار به متن",fontSize=20.sp);TaskChoice(tasks,id){id=it;text=UltimateStore.text(c,"speech_"+it)};Button({if(recording)stop()else start()}){Text(if(recording)"توقف ضبط" else "ضبط صدا")};Button({speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE,"fa-IR").putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))}){Text("گفتار به متن")};OutlinedTextField(text,{text=it;UltimateStore.putText(c,"speech_"+id,it)},Modifier.fillMaxWidth(),minLines=3,label={Text("متن کار")})}
+    Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text("ضبط و گفتار به متن",fontSize=20.sp);TaskChoice(tasks,id){id=it;text=UltimateStore.text(c,"speech_"+it)};Button({if(recording)stop()else if(androidx.core.content.ContextCompat.checkSelfPermission(c,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)start()else audioPermission.launch(Manifest.permission.RECORD_AUDIO)}){Text(if(recording)"توقف ضبط" else "ضبط صدا")};Button({speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE,"fa-IR").putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))}){Text("گفتار به متن")};OutlinedTextField(text,{text=it;UltimateStore.putText(c,"speech_"+id,it)},Modifier.fillMaxWidth(),minLines=3,label={Text("متن کار")})}
 }
 
 @Composable private fun HistoryPanel(c:Context){
@@ -240,6 +241,12 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
     Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text("تقویم شمسی متصل به تاریخ کار",fontSize=20.sp);TaskChoice(tasks,id){id=it};OutlinedTextField(start,{start=it},Modifier.fillMaxWidth(),label={Text("شروع YYYY/MM/DD شمسی")});OutlinedTextField(due,{due=it},Modifier.fillMaxWidth(),label={Text("سررسید YYYY/MM/DD شمسی")});if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error);Button({val t=tasks.firstOrNull{it.id==id};val s=parseJalali(start);val d=parseJalali(due);if(t!=null&&(start.isBlank()||s!=null)&&(due.isBlank()||d!=null)){update(t.copy(startDate=s?.toString().orEmpty(),dueDate=(d?:s)?.toString().orEmpty()));UltimateStore.history(c,t,"jalali dates")}else error="تاریخ شمسی نامعتبر است"}){Text("ذخیره")};Text("امروز: "+JalaliDate.toJalali(LocalDate.now()))}
 }
 
+private fun startRecordingForUltimate(c:Context,id:Int,onReady:(MediaRecorder,String)->Unit){
+    val dir=File(c.filesDir,"audio/"+id).apply{mkdirs()}
+    val f=File(dir,System.currentTimeMillis().toString()+".m4a")
+    val m=MediaRecorder()
+    m.setAudioSource(MediaRecorder.AudioSource.MIC);m.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);m.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);m.setOutputFile(f.absolutePath);m.prepare();m.start();onReady(m,f.absolutePath)
+}
 private fun parseJalali(s:String):LocalDate?{val x=s.trim().replace('-','/').split('/');if(x.size!=3)return null;return JalaliDate.fromJalali(x[0].toIntOrNull()?:return null,x[1].toIntOrNull()?:return null,x[2].toIntOrNull()?:return null)}
 private fun scoreSearch(q:String,t:TodoItem):Int{if(q.isBlank())return 100;val all=(t.title+" "+t.note+" "+t.tags+" "+t.category+" "+t.location).lowercase();val x=q.lowercase();if(all.contains(x))return 100;return all.split(Regex("\\s+")).maxOfOrNull{100-lev(x,it).coerceAtMost(100)}?.takeIf{it>35}?:0}
 private fun lev(a:String,b:String):Int{val d=Array(a.length+1){IntArray(b.length+1)};for(i in d.indices)d[i][0]=i;for(j in d[0].indices)d[0][j]=j;for(i in 1..a.length)for(j in 1..b.length)d[i][j]=minOf(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+if(a[i-1]==b[j-1])0 else 1);return d[a.length][b.length]}
