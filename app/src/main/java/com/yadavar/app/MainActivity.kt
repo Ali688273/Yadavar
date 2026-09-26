@@ -1080,6 +1080,24 @@ private fun PersonalizationSettings(context: Context) {
                 Text("پیشنهاد خودکار کارهای عقب‌افتاده", Modifier.weight(1f))
                 Switch(checked = autoCarry, onCheckedChange = { autoCarry = it; prefs.edit().putBoolean("smart_auto_carry", it).apply() })
             }
+            var taskNotifications by remember { mutableStateOf(prefs.getBoolean("task_notifications_enabled", true)) }
+            var birthdayNotifications by remember { mutableStateOf(prefs.getBoolean("birthday_notifications_enabled", true)) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("اعلان‌های کارها", Modifier.weight(1f))
+                Switch(checked = taskNotifications, onCheckedChange = {
+                    taskNotifications = it
+                    prefs.edit().putBoolean("task_notifications_enabled", it).apply()
+                    TaskNotificationScheduler.scheduleAll(context, loadTasks(context))
+                })
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("اعلان‌های تولد", Modifier.weight(1f))
+                Switch(checked = birthdayNotifications, onCheckedChange = {
+                    birthdayNotifications = it
+                    prefs.edit().putBoolean("birthday_notifications_enabled", it).apply()
+                    BirthdayNotificationScheduler.scheduleAll(context, loadBirthdays(context))
+                })
+            }
         }
     }
 }
