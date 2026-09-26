@@ -52,6 +52,8 @@ private object UltimateStore {
     fun award(c:Context,t:TodoItem){val s=p(c).getStringSet("awarded",emptySet())!!.toMutableSet();if(s.add(t.id.toString())){putInt(c,"points",points(c)+if(t.priority=="high")30 else 20);p(c).edit().putStringSet("awarded",s).apply()}}
     fun dashboard(c:Context)=text(c,"dashboard","progress,goals,points,timeline,quick").split(",").filter{it.isNotBlank()}
     fun setDashboard(c:Context,l:List<String>){putText(c,"dashboard",l.joinToString(","))}
+    fun taskOrder(c:Context):List<Int> = text(c,"task_order","").split(",").mapNotNull{it.toIntOrNull()}
+    fun setTaskOrder(c:Context,l:List<Int>){putText(c,"task_order",l.joinToString(","))}
 }
 
 private object JalaliDate {
