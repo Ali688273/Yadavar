@@ -47,7 +47,9 @@ object GeofenceManager {
         val list=load(context).filterNot{it.taskId==taskId}
         val a=JSONArray(); list.forEach{a.put(JSONObject().put("taskId",it.taskId).put("title",it.title).put("lat",it.latitude).put("lon",it.longitude).put("radius",it.radius))}
         context.getSharedPreferences(PREFS,0).edit().putString(KEY,a.toString()).apply()
-        if (hasLocationPermission(context)) LocationServices.getGeofencingClient(context).removeGeofences(pendingIntent(context))
+        if (hasLocationPermission(context)) {
+            LocationServices.getGeofencingClient(context).removeGeofences(pendingIntent(context)).addOnCompleteListener { registerAll(context) }
+        }
     }
 
     fun registerAll(context: Context) {
