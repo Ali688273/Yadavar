@@ -103,7 +103,8 @@ fun AdvancedSuiteScreen(context: Context, tasks: List<TodoItem>, onUpdate: (Todo
                 val days=(0..6).map{today.minusDays(it.toLong()) to tasks.count{x->x.done && x.dueDate==today.minusDays(it.toLong()).toString()}}
                 Text("بهترین روز: "+(days.maxByOrNull{it.second}?.first ?: today))
                 Text("ضعیف‌ترین روز: "+(days.minByOrNull{it.second}?.first ?: today))
-                days.reversed().forEach{Text(it.first.dayOfWeek.toString()+": "+it.second)}
+                val maxDay = (days.maxOfOrNull { it.second } ?: 1).coerceAtLeast(1)
+                days.reversed().forEach { item -> Text(item.first.dayOfWeek.toString()+": "+item.second); LinearProgressIndicator(progress={item.second.toFloat()/maxDay},modifier=Modifier.fillMaxWidth()) }
             } }
         }
         item {
