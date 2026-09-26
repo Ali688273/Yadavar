@@ -1,6 +1,7 @@
 package com.yadavar.app
 
-import android.content.Context\nimport android.content.Intent
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
