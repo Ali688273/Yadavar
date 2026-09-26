@@ -34,6 +34,12 @@ import com.yadavar.app.core.TaskReminderCodec
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.security.MessageDigest
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 
 data class TodoItem(
     val id: Int,
@@ -70,8 +76,8 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 25) {
             val manager = getSystemService(ShortcutManager::class.java)
             manager.dynamicShortcuts = listOf(
-                ShortcutInfo.Builder(this, "new_task").setShortLabel("کار جدید").setLongLabel("افزودن کار جدید").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_input_add)).setIntent(android.content.Intent(this, MainActivity::class.java)).build(),
-                ShortcutInfo.Builder(this, "birthdays").setShortLabel("تولدها").setLongLabel("باز کردن تولدها").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_my_calendar)).setIntent(android.content.Intent(this, MainActivity::class.java)).build()
+                ShortcutInfo.Builder(this, "new_task").setShortLabel("کار جدید").setLongLabel("افزودن کار جدید").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_input_add)).setIntent(android.content.Intent(this, MainActivity::class.java).putExtra("new_task", true)).build(),
+                ShortcutInfo.Builder(this, "birthdays").setShortLabel("تولدها").setLongLabel("باز کردن تولدها").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_my_calendar)).setIntent(android.content.Intent(this, MainActivity::class.java).putExtra("open_birthdays", true)).build()
             )
         }
         setContent { YadavarApp(this) }
@@ -133,14 +139,18 @@ fun YadavarApp(context: Context) {
     fun saveT() {
         saveTasks(context, tasks)
         TaskNotificationScheduler.scheduleAll(context, tasks)
+        refreshWidget(context)
     }
     fun saveB() {
         saveBirthdays(context, birthdays)
         BirthdayNotificationScheduler.scheduleAll(context, birthdays)
+        refreshWidget(context)
     }
 
     LaunchedEffect(Unit) {
-        if (context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE).getBoolean("smart_auto_carry", true)) {
+        val extraPrefs = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
+        if (extraPrefs.getBoolean("smart_auto_carry", true) &&
+            extraPrefs.getString("last_auto_carry_date", "") != java.time.LocalDate.now().toString()) {
             val today = java.time.LocalDate.now()
             var changed = false
             for (i in tasks.indices) {
@@ -153,10 +163,29 @@ fun YadavarApp(context: Context) {
                     }
                 }
             }
+            extraPrefs.edit().putString("last_auto_carry_date", today.toString()).apply()
             if (changed) saveT()
         }
         BirthdayNotificationScheduler.scheduleAll(context, birthdays)
         TaskNotificationScheduler.scheduleAll(context, tasks)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && ExtraFeaturesStore.pin(context).isNotBlank()) {
+                unlocked = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val activity = context as? MainActivity
+    LaunchedEffect(Unit) {
+        if (activity?.intent?.getBooleanExtra("open_birthdays", false) == true) tab = 1
+        if (activity?.intent?.getBooleanExtra("new_task", false) == true) addTask = true
+        activity?.intent?.removeExtra("open_birthdays")
+        activity?.intent?.removeExtra("new_task")
     }
 
     Scaffold(
@@ -228,7 +257,7 @@ fun YadavarApp(context: Context) {
     }
 
     if (!unlocked) {
-        AlertDialog(onDismissRequest = {}, title = { Text("قفل برنامه") }, text = { OutlinedTextField(unlockPin, { unlockPin = it.filter(Char::isDigit).take(8) }, singleLine = true, label = { Text("PIN") }) }, confirmButton = { Button(onClick = { if (unlockPin == ExtraFeaturesStore.pin(context)) { unlocked = true; unlockPin = "" } }) { Text("ورود") } })
+        AlertDialog(onDismissRequest = {}, title = { Text("قفل برنامه") }, text = { OutlinedTextField(unlockPin, { unlockPin = it.filter(Char::isDigit).take(8) }, singleLine = true, label = { Text("PIN") }) }, confirmButton = { Button(onClick = { if (ExtraFeaturesStore.verifyPin(context, unlockPin)) { unlocked = true; unlockPin = "" } }) { Text("ورود") } })
     }
 
     if (taskToDelete != null) {
@@ -1054,3 +1083,15 @@ private fun PersonalizationSettings(context: Context) {
         }
     }
 }
+
+
+private fun refreshWidget(context: Context) {
+    val manager = AppWidgetManager.getInstance(context)
+    val ids = manager.getAppWidgetIds(ComponentName(context, YadavarWidgetProvider::class.java))
+    if (ids.isNotEmpty()) YadavarWidgetProvider().onUpdate(context, manager, ids)
+}
+
+private fun hashPin(value: String): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
