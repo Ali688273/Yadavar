@@ -64,7 +64,24 @@ object ExtraFeaturesStore {
         p(c).edit().putString("undo_task",o.toString()).apply()
     }
     fun clearUndo(c:Context){p(c).edit().remove("undo_task").apply()}
-    fun templates(c:Context):List<TodoItem>{val raw=p(c).getString("templates","").orEmpty();return runCatching{val a=JSONArray(raw);(0 until a.length()).mapNotNull{val o=a.optJSONObject(it)?:return@mapNotNull null;TodoItem(0,o.optString("title"),false,o.optInt("hour",-1).takeIf{x->x in 0..23},o.optInt("minute",-1).takeIf{x->x in 0..59},o.optString("repeat","none"),o.optString("category","عمومی"),o.optString("priority","normal"),o.optString("startDate"),o.optString("dueDate"),o.optString("note"),o.optString("tags"),o.optString("subtasks"),o.optString("location"),o.optInt("customEvery",1),o.optString("customUnit","day"),TaskReminderCodec.decode(o.optString("reminders")))} }}.getOrElse{emptyList()}}
+    fun templates(c:Context): List<TodoItem> {
+        val raw = p(c).getString("templates","").orEmpty()
+        return runCatching {
+            val a = JSONArray(raw)
+            (0 until a.length()).mapNotNull { index ->
+                val o = a.optJSONObject(index) ?: return@mapNotNull null
+                TodoItem(
+                    id=0, title=o.optString("title"),
+                    reminderHour=o.optInt("hour",-1).takeIf { it in 0..23 },
+                    reminderMinute=o.optInt("minute",-1).takeIf { it in 0..59 },
+                    repeat=o.optString("repeat","none"), category=o.optString("category","عمومی"), priority=o.optString("priority","normal"),
+                    startDate=o.optString("startDate"), dueDate=o.optString("dueDate"), note=o.optString("note"), tags=o.optString("tags"),
+                    subtasks=o.optString("subtasks"), location=o.optString("location"), customEvery=o.optInt("customEvery",1), customUnit=o.optString("customUnit","day"),
+                    reminders=TaskReminderCodec.decode(o.optString("reminders"))
+                )
+            }
+        }.getOrElse { emptyList() }
+    }
     fun saveTemplates(c:Context,list:List<TodoItem>){val a=JSONArray();list.take(100).forEach{a.put(JSONObject().put("title",it.title).put("hour",it.reminderHour?:-1).put("minute",it.reminderMinute?:-1).put("repeat",it.repeat).put("category",it.category).put("priority",it.priority).put("startDate",it.startDate).put("dueDate",it.dueDate).put("note",it.note).put("tags",it.tags).put("subtasks",it.subtasks).put("location",it.location).put("customEvery",it.customEvery).put("customUnit",it.customUnit).put("reminders",TaskReminderCodec.encode(it.reminders)))};p(c).edit().putString("templates",a.toString()).apply()}
     fun inbox(c:Context):List<String>=p(c).getString("inbox","").orEmpty().split("\n").filter{it.isNotBlank()}
     fun addInbox(c:Context,text:String){p(c).edit().putString("inbox",(inbox(c)+text.trim()).distinct().joinToString("\n")).apply()}
