@@ -17,6 +17,7 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
         val month = intent.getIntExtra(EXTRA_MONTH, 0)
         val day = intent.getIntExtra(EXTRA_DAY, 0)
         val type = intent.getIntExtra(EXTRA_TYPE, TYPE_TODAY)
+        val daysBefore = intent.getIntExtra(EXTRA_DAYS_BEFORE, if (type == TYPE_TODAY) 0 else 1)
 
         if (id < 0 || !isValidDate(month, day)) return
 
@@ -38,11 +39,11 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = if (type == TYPE_TOMORROW) "تولد نزدیک است 🎂" else "امروز تولد است 🎉"
-        val text = if (type == TYPE_TOMORROW) {
-            "فردا تولد $name است."
-        } else {
-            "امروز تولد $name است. تولدش مبارک!"
+        val title = if (daysBefore == 0) "امروز تولد است 🎉" else "تولد نزدیک است 🎂"
+        val text = when (daysBefore) {
+            0 -> "امروز تولد $name است. تولدش مبارک!"
+            1 -> "فردا تولد $name است."
+            else -> "$daysBefore روز دیگر تولد $name است."
         }
 
         manager.notify(
@@ -57,13 +58,7 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
                 .build()
         )
 
-        BirthdayNotificationScheduler.scheduleBirthday(
-            context = context,
-            id = id,
-            name = name,
-            month = month,
-            day = day
-        )
+        BirthdayNotificationScheduler.scheduleBirthday(context, id, name, month, day, "1,0")
     }
 
     private fun isValidDate(month: Int, day: Int): Boolean {
@@ -85,5 +80,7 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
         const val EXTRA_TYPE = "birthday_type"
         const val TYPE_TOMORROW = 1
         const val TYPE_TODAY = 2
+        const val TYPE_BEFORE = 3
+        const val EXTRA_DAYS_BEFORE = "birthday_days_before"
     }
 }
