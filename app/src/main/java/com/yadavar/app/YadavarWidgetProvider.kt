@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
+import java.time.LocalDate
 
 class YadavarWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -16,8 +17,13 @@ class YadavarWidgetProvider : AppWidgetProvider() {
             val done = if (tasks.isBlank()) 0 else tasks.lines().count { it.isNotBlank() && it.split("\t").getOrNull(1) == "1" }
             views.setTextViewText(R.id.widget_title, "یادآور")
             val remaining = (total - done).coerceAtLeast(0)
+            val overdue = tasks.lines().count {
+                val x = it.split("\t")
+                x.isNotBlank() && x.getOrNull(1) == "0" && x.getOrNull(9).orEmpty().isNotBlank() &&
+                    runCatching { LocalDate.parse(x[9]).isBefore(LocalDate.now()) }.getOrDefault(false)
+            }
             val nextTitle = tasks.lines().asSequence().filter { it.isNotBlank() && it.split("\t").getOrNull(1) != "1" }.map { it.split("\t").getOrNull(2).orEmpty() }.firstOrNull { it.isNotBlank() } ?: "کاری باقی نمانده"
-            views.setTextViewText(R.id.widget_count, "‎$done از $total انجام شده • باقی‌مانده: $remaining")
+            views.setTextViewText(R.id.widget_count, "‎$done از $total انجام شده • باقی‌مانده: $remaining • عقب‌افتاده: $overdue")
             views.setTextViewText(R.id.widget_next, "بعدی: $nextTitle")
             views.setOnClickPendingIntent(
                 R.id.widget_root,
