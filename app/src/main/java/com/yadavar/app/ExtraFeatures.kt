@@ -2,6 +2,9 @@ package com.yadavar.app
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import org.json.JSONObject
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,8 +27,40 @@ object ExtraFeaturesStore {
     private fun p(c: Context) = c.getSharedPreferences(PREF, Context.MODE_PRIVATE)
     fun archived(c: Context): Set<Int> = p(c).getStringSet("archived_ids", emptySet()) ?: emptySet()
     fun setArchived(c: Context, id: Int, value: Boolean) { val s=archived(c).toMutableSet(); if(value)s.add(id) else s.remove(id); p(c).edit().putStringSet("archived_ids",s).apply() }
-    fun undo(c: Context): TodoItem? { val raw=p(c).getString("undo_task",null) ?: return null; val x=raw.split("\\t",limit=6); if(x.size<6)return null; return TodoItem(x[0].toIntOrNull()?:return null,x[1],x[2]=="1",dueDate=x[3],category=x[4],priority=x[5]) }
-    fun saveUndo(c: Context,t:TodoItem){p(c).edit().putString("undo_task",listOf(t.id,t.title,if(t.done)"1" else "0",t.dueDate,t.category,t.priority).joinToString("\\t")).apply()}
+    fun undo(c: Context): TodoItem? {
+        val raw = p(c).getString("undo_task", null) ?: return null
+        return runCatching {
+            val o = JSONObject(raw)
+            TodoItem(
+                id = o.optInt("id", -1),
+                title = o.optString("title"),
+                done = o.optBoolean("done", false),
+                reminderHour = o.optInt("reminderHour", -1).takeIf { it in 0..23 },
+                reminderMinute = o.optInt("reminderMinute", -1).takeIf { it in 0..59 },
+                repeat = o.optString("repeat", "none"),
+                category = o.optString("category", "عمومی"),
+                priority = o.optString("priority", "normal"),
+                startDate = o.optString("startDate"),
+                dueDate = o.optString("dueDate"),
+                note = o.optString("note"),
+                tags = o.optString("tags"),
+                subtasks = o.optString("subtasks"),
+                location = o.optString("location"),
+                customEvery = o.optInt("customEvery", 1),
+                customUnit = o.optString("customUnit", "day"),
+                reminders = TaskReminderCodec.decode(o.optString("reminders"))
+            )
+        }.getOrNull()
+    }
+    fun saveUndo(c: Context,t:TodoItem){
+        val o=JSONObject().put("id",t.id).put("title",t.title).put("done",t.done)
+            .put("reminderHour",t.reminderHour ?: -1).put("reminderMinute",t.reminderMinute ?: -1)
+            .put("repeat",t.repeat).put("category",t.category).put("priority",t.priority)
+            .put("startDate",t.startDate).put("dueDate",t.dueDate).put("note",t.note).put("tags",t.tags)
+            .put("subtasks",t.subtasks).put("location",t.location).put("customEvery",t.customEvery)
+            .put("customUnit",t.customUnit).put("reminders",TaskReminderCodec.encode(t.reminders))
+        p(c).edit().putString("undo_task",o.toString()).apply()
+    }
     fun clearUndo(c:Context){p(c).edit().remove("undo_task").apply()}
     fun templates(c:Context):List<TodoItem>{return p(c).getString("templates","").orEmpty().split("\\n").mapNotNull{val x=it.split("\\t",limit=5);if(x.size==5)TodoItem(0,x[0],category=x[1],priority=x[2],note=x[3],subtasks=x[4])else null}}
     fun saveTemplates(c:Context,list:List<TodoItem>){p(c).edit().putString("templates",list.joinToString("\\n"){listOf(it.title,it.category,it.priority,it.note,it.subtasks).joinToString("\\t")}).apply()}
@@ -35,7 +70,7 @@ object ExtraFeaturesStore {
     fun weeklyGoal(c:Context):Int=p(c).getInt("weekly_goal",10)
     fun setWeeklyGoal(c:Context,v:Int)=p(c).edit().putInt("weekly_goal",v.coerceIn(1,999)).apply()
     fun pin(c:Context):String=p(c).getString("app_pin","").orEmpty()
-    fun setPin(c:Context,v:String)=p(c).edit().putString("app_pin",v.take(8)).apply()
+    fun setPin(c:Context,v:String)=p(c).edit().putString("app_pin",v.filter(Char::isDigit).take(8)).apply()
 }
 
 @Composable
@@ -65,15 +100,20 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
 }
 
 @Composable private fun InboxPanel(c:Context,text:String,onText:(String)->Unit,onAdd:()->Unit){
-    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("صندوق ورودی سریع",fontSize=20.sp,fontWeight=FontWeight.Bold);Text("ایده یا کار را سریع ذخیره کن و بعداً به کار اصلی تبدیلش کن.")}
-        item{Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){OutlinedTextField(text,onText,Modifier.weight(1f),singleLine=true,label={Text("یک فکر یا کار")});Button(onClick=onAdd){Text("ثبت")}}}
-        items(ExtraFeaturesStore.inbox(c)){value->Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){Text(value,Modifier.weight(1f));IconButton({ExtraFeaturesStore.removeInbox(c,value)}){Icon(Icons.Default.Delete,"حذف")}}}}
+    var values by remember { mutableStateOf(ExtraFeaturesStore.inbox(c)) }
+    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("صندوق ورودی سریع",fontSize=20.sp,fontWeight=FontWeight.Bold);Text("ایده یا کار را سریع ذخیره کن و مستقیماً به کار تبدیل کن.")}
+        item{Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){OutlinedTextField(text,onText,Modifier.weight(1f),singleLine=true,label={Text("یک فکر یا کار")});Button(onClick={onAdd();values=ExtraFeaturesStore.inbox(c)}){Text("ثبت")}}}
+        items(values){value->Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){
+            Text(value,Modifier.weight(1f))
+            TextButton(onClick={ExtraFeaturesStore.removeInbox(c,value);values=ExtraFeaturesStore.inbox(c);}){Text("تبدیل به کار")}
+            IconButton({ExtraFeaturesStore.removeInbox(c,value);values=ExtraFeaturesStore.inbox(c)}){Icon(Icons.Default.Delete,"حذف")}
+        }}}
     }
 }
 @Composable private fun ArchivePanel(c:Context,tasks:List<TodoItem>,onDelete:(Int)->Unit){
-    val archived=ExtraFeaturesStore.archived(c)
+    var archived by remember { mutableStateOf(ExtraFeaturesStore.archived(c)) }
     LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("آرشیو حرفه‌ای",fontSize=20.sp,fontWeight=FontWeight.Bold);Text("کارهای آرشیوشده از فهرست عادی جدا می‌مانند.")}
-        items(tasks.filter{it.id in archived},key={it.id}){t->Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){Text(t.title,Modifier.weight(1f));TextButton({ExtraFeaturesStore.setArchived(c,t.id,false)}){Text("بازگردانی")};IconButton({onDelete(t.id);ExtraFeaturesStore.setArchived(c,t.id,false)}){Icon(Icons.Default.Delete,"حذف")}}}}
+        items(tasks.filter{it.id in archived},key={it.id}){t->Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(10.dp),verticalAlignment=Alignment.CenterVertically){Text(t.title,Modifier.weight(1f));TextButton({ExtraFeaturesStore.setArchived(c,t.id,false);archived=ExtraFeaturesStore.archived(c)}){Text("بازگردانی")};IconButton({onDelete(t.id);ExtraFeaturesStore.setArchived(c,t.id,false);archived=ExtraFeaturesStore.archived(c)}){Icon(Icons.Default.Delete,"حذف")}}}}
         if(tasks.none{it.id in archived})item{Text("آرشیوی وجود ندارد.")}
     }
 }
@@ -97,10 +137,10 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
 }
 @Composable private fun ReportCard(t:String,v:Int,s:String=""){Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(t);Text("$v$s",fontWeight=FontWeight.Bold)}}}
 @Composable private fun TemplatePanel(c:Context,name:String,onName:(String)->Unit,tasks:List<TodoItem>,onAdd:(TodoItem)->Unit){
-    val templates=ExtraFeaturesStore.templates(c)
-    Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("قالب‌های آماده",fontSize=20.sp,fontWeight=FontWeight.Bold);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){OutlinedTextField(name,onName,Modifier.weight(1f),singleLine=true,label={Text("نام قالب")});Button(onClick={if(name.isNotBlank()){ExtraFeaturesStore.saveTemplates(c,templates+TodoItem(0,name));onName("")}}){Text("ذخیره")}};templates.forEach{t->Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(t.title,Modifier.weight(1f));TextButton({onAdd(t.copy(id=(tasks.maxOfOrNull{it.id}?:0)+1))}){Text("ایجاد کار")}}}}
+    var templates by remember { mutableStateOf(ExtraFeaturesStore.templates(c)) }
+    Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("قالب‌های آماده",fontSize=20.sp,fontWeight=FontWeight.Bold);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){OutlinedTextField(name,onName,Modifier.weight(1f),singleLine=true,label={Text("نام قالب")});Button(onClick={if(name.isNotBlank()){templates=templates+TodoItem(0,name);ExtraFeaturesStore.saveTemplates(c,templates);onName("")}}){Text("ذخیره")}};templates.forEach{t->Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(t.title,Modifier.weight(1f));TextButton({onAdd(t.copy(id=(tasks.maxOfOrNull{it.id}?:0)+1))}){Text("ایجاد کار")};TextButton({templates=templates.filterNot{it.title==t.title};ExtraFeaturesStore.saveTemplates(c,templates)}){Text("حذف")}}}}
 }
 @Composable private fun LockPanel(c:Context,pin:String,onPin:(String)->Unit){
     val current=ExtraFeaturesStore.pin(c)
-    Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("قفل برنامه",fontSize=20.sp,fontWeight=FontWeight.Bold);Text("قفل کاملاً محلی است و هیچ اطلاعاتی به اینترنت ارسال نمی‌شود.");OutlinedTextField(pin,onPin,singleLine=true,label={Text("PIN حداقل ۴ رقم")});Button(onClick={if(pin.length>=4){ExtraFeaturesStore.setPin(c,pin);onPin("")}}){Text(if(current.isBlank())"فعال‌سازی قفل" else "تغییر PIN")};if(current.isNotBlank())Text("قفل فعال است.")}
+    Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("قفل برنامه",fontSize=20.sp,fontWeight=FontWeight.Bold);Text("قفل کاملاً محلی است و هیچ اطلاعاتی به اینترنت ارسال نمی‌شود.");OutlinedTextField(pin,onPin,singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),label={Text("PIN حداقل ۴ رقم")});Button(onClick={if(pin.length>=4){ExtraFeaturesStore.setPin(c,pin);onPin("")}}){Text(if(current.isBlank())"فعال‌سازی قفل" else "تغییر PIN")};if(current.isNotBlank())Text("قفل فعال است.")}
 }
