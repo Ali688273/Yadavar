@@ -418,7 +418,8 @@ fun TodoScreen(
     modifier: Modifier = Modifier
 ) {
     val archived = ExtraFeaturesStore.archived(context = context)
-    val visibleTasks = tasks.filterNot { it.id in archived }
+    val order = UltimateStore.taskOrder(context)
+    val visibleTasks = tasks.filterNot { it.id in archived }.sortedWith(compareBy({ val i = order.indexOf(it.id); if (i < 0) Int.MAX_VALUE else i }, { it.id }))
     val done = visibleTasks.count { it.done }
     val filtered = if (query.isBlank()) visibleTasks else visibleTasks.filter {
         val q = query.trim()
