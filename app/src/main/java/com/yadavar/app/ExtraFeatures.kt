@@ -147,8 +147,29 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
 }
 @Composable private fun ReportCard(t:String,v:Int,s:String=""){Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(t);Text("$v$s",fontWeight=FontWeight.Bold)}}}
 @Composable private fun TemplatePanel(c:Context,name:String,onName:(String)->Unit,tasks:List<TodoItem>,onAdd:(TodoItem)->Unit){
+    var title by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var priority by remember { mutableStateOf("normal") }
+    var category by remember { mutableStateOf("عمومی") }
+    var tags by remember { mutableStateOf("") }
+    var subtasks by remember { mutableStateOf("") }
+    var due by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("none") }
+    var reminders by remember { mutableStateOf("09:00") }
     var templates by remember { mutableStateOf(ExtraFeaturesStore.templates(c)) }
-    Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("قالب‌های آماده",fontSize=20.sp,fontWeight=FontWeight.Bold);Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){OutlinedTextField(name,onName,Modifier.weight(1f),singleLine=true,label={Text("نام قالب")});Button(onClick={if(name.isNotBlank()){templates=templates+TodoItem(0,name);ExtraFeaturesStore.saveTemplates(c,templates);onName("")}}){Text("ذخیره")}};templates.forEach{t->Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(t.title,Modifier.weight(1f));TextButton({onAdd(t.copy(id=(tasks.maxOfOrNull{it.id}?:0)+1))}){Text("ایجاد کار")};TextButton({templates=templates.filterNot{it.title==t.title};ExtraFeaturesStore.saveTemplates(c,templates)}){Text("حذف")}}}}
+    Column(verticalArrangement=Arrangement.spacedBy(7.dp)){
+        Text("قالب‌های کامل",fontSize=20.sp,fontWeight=FontWeight.Bold)
+        OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("عنوان")})
+        OutlinedTextField(note,{note=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("توضیح")})
+        Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){ listOf("low","normal","high").forEach{v->FilterChip(priority==v,{priority=v},label={Text(if(v=="high")"مهم" else if(v=="low")"کم" else "عادی")})} }
+        Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){ listOf("عمومی","کار","شخصی","خرید").forEach{v->FilterChip(category==v,{category=v},label={Text(v)})} }
+        OutlinedTextField(tags,{tags=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("برچسب")})
+        OutlinedTextField(subtasks,{subtasks=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("زیرکارها با |")})
+        Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){OutlinedTextField(due,{due=it},Modifier.weight(1f),singleLine=true,label={Text("سررسید YYYY-MM-DD")});OutlinedTextField(reminders,{reminders=it},Modifier.weight(1f),singleLine=true,label={Text("یادآوری HH:MM")})}
+        Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf("none","daily","weekly","monthly","yearly").forEach{v->FilterChip(repeat==v,{repeat=v},label={Text(v)})}}
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){Button(onClick={if(title.isNotBlank()){val r=reminders.split(":").let{if(it.size==2)TaskReminder(it[0].toIntOrNull()?:9,it[1].toIntOrNull()?:0)else TaskReminder(9,0)};val t=TodoItem(0,title,false,r.hour,r.minute,repeat,category,priority,"",due,note,tags,subtasks,"",1,"day",listOf(r));templates=templates+t.copy(id=0);ExtraFeaturesStore.saveTemplates(c,templates);title="";note=""}}){Text("ذخیره قالب")};TextButton(onClick={title="";note="";tags="";subtasks=""}){Text("پاک کردن")}}
+        templates.forEach{t->Card(Modifier.fillMaxWidth()){Row(Modifier.fillMaxWidth().padding(8.dp),verticalAlignment=Alignment.CenterVertically){Text(t.title,Modifier.weight(1f));TextButton({onAdd(t.copy(id=(tasks.maxOfOrNull{it.id}?:0)+1))}){Text("ایجاد")};TextButton({templates=templates.filterNot{it.title==t.title};ExtraFeaturesStore.saveTemplates(c,templates)}){Text("حذف")}}}}
+    }
 }
 @Composable private fun LockPanel(c:Context,pin:String,onPin:(String)->Unit){
     val current=ExtraFeaturesStore.pin(c)
