@@ -88,7 +88,7 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
         ScrollableTabRow(selectedTabIndex=section,edgePadding=0.dp){listOf("Inbox","آرشیو","Undo","هفتگی","گزارش","قالب‌ها","قفل").forEachIndexed{i,t->Tab(section==i,{section=i},text={Text(t)})}}
         Spacer(Modifier.height(10.dp))
         when(section){
-            0->InboxPanel(context,inboxText,{inboxText=it},{val s=inboxText.trim();if(s.isNotEmpty()){ExtraFeaturesStore.addInbox(context,s);inboxText=""}})
+            0->InboxPanel(context,inboxText,{inboxText=it},{val s=inboxText.trim();if(s.isNotEmpty()){ExtraFeaturesStore.addInbox(context,s);inboxText=""}},{text->onAdd(TodoItem((tasks.maxOfOrNull{it.id}?:0)+1,text));ExtraFeaturesStore.removeInbox(context,text)})
             1->ArchivePanel(context,tasks,onDelete)
             2->UndoPanel(context,onAdd)
             3->WeeklyPanel(context,tasks,selectedWeek,{selectedWeek=it},goal,{goal=it;ExtraFeaturesStore.setWeeklyGoal(context,it)})
@@ -99,7 +99,7 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
     }
 }
 
-@Composable private fun InboxPanel(c:Context,text:String,onText:(String)->Unit,onAdd:()->Unit){
+@Composable private fun InboxPanel(c:Context,text:String,onText:(String)->Unit,onAdd:()->Unit,onConvert:(String)->Unit){
     var values by remember { mutableStateOf(ExtraFeaturesStore.inbox(c)) }
     LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){item{Text("صندوق ورودی سریع",fontSize=20.sp,fontWeight=FontWeight.Bold);Text("ایده یا کار را سریع ذخیره کن و مستقیماً به کار تبدیل کن.")}
         item{Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){OutlinedTextField(text,onText,Modifier.weight(1f),singleLine=true,label={Text("یک فکر یا کار")});Button(onClick={onAdd();values=ExtraFeaturesStore.inbox(c)}){Text("ثبت")}}}
