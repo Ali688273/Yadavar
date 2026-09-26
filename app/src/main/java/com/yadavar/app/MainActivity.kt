@@ -241,6 +241,7 @@ fun YadavarApp(context: Context) {
             )
             2 -> ProfessionalScreen(context = context, tasks = tasks, onAdd = { tasks.add(it); saveT() }, onUpdate = { item -> val i = tasks.indexOfFirst { it.id == item.id }; if (i >= 0) { tasks[i] = item; saveT() } }, onDelete = { id -> tasks.removeAll { it.id == id }; saveT() }, modifier = Modifier.padding(pad))
             else -> SettingsScreen(
+                context = context,
                 total = tasks.size,
                 done = tasks.count { it.done },
                 birthdays = birthdays.size,
@@ -899,6 +900,7 @@ fun EditBirthdayDialog(
 
 @Composable
 fun SettingsScreen(
+    context: Context,
     total: Int,
     done: Int,
     birthdays: Int,
