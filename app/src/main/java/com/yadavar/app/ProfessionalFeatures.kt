@@ -39,11 +39,11 @@ fun ProfessionalScreen(
     var sort by remember { mutableStateOf("due") }
     val today = LocalDate.now()
     val overdue = tasks.count { !it.done && parseDate(it.dueDate)?.isBefore(today) == true }
-    val todayTasks = tasks.filter { t ->
+    val todayTasks = tasks.filter { t ->\n        !ExtraFeaturesStore.archived(context).contains(t.id) &&
         val due = parseDate(t.dueDate)
         due == today || (t.dueDate.isBlank() && !t.done)
     }
-    val visible = tasks.filter { t ->
+    val visible = tasks.filter { t ->\n        !ExtraFeaturesStore.archived(context).contains(t.id) &&
         val q = query.trim()
         val matchesQ = q.isBlank() || t.title.contains(q, true) || t.tags.contains(q, true) || t.note.contains(q, true)
         val matchesFilter = when (filter) {
@@ -95,7 +95,7 @@ fun ProfessionalScreen(
                 }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(visible, key = { it.id }) { t ->
-                        AdvancedTaskCard(context, t, { onUpdate(t.copy(done = !t.done)) }, { editing = t }, { onDelete(t.id) })
+                        AdvancedTaskCard(context, t, { onUpdate(t.copy(done = !t.done)) }, { editing = t }, { ExtraFeaturesStore.saveUndo(context, t); onDelete(t.id) })
                     }
                 }
             }
