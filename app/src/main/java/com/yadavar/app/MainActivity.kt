@@ -1,7 +1,9 @@
 package com.yadavar.app
 
 import android.Manifest
-import android.content.Context\nimport android.content.pm.ShortcutInfo\nimport android.content.pm.ShortcutManager
+import android.content.Context
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -65,7 +67,14 @@ class MainActivity : ComponentActivity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
 
-        if (Build.VERSION.SDK_INT >= 25) {\n            val manager = getSystemService(ShortcutManager::class.java)\n            manager.dynamicShortcuts = listOf(\n                ShortcutInfo.Builder(this, "new_task").setShortLabel("کار جدید").setLongLabel("افزودن کار جدید").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_input_add)).setIntent(android.content.Intent(this, MainActivity::class.java)).build(),\n                ShortcutInfo.Builder(this, "birthdays").setShortLabel("تولدها").setLongLabel("باز کردن تولدها").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_my_calendar)).setIntent(android.content.Intent(this, MainActivity::class.java)).build()\n            )\n        }\n        setContent { YadavarApp(this) }
+        if (Build.VERSION.SDK_INT >= 25) {
+            val manager = getSystemService(ShortcutManager::class.java)
+            manager.dynamicShortcuts = listOf(
+                ShortcutInfo.Builder(this, "new_task").setShortLabel("کار جدید").setLongLabel("افزودن کار جدید").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_input_add)).setIntent(android.content.Intent(this, MainActivity::class.java)).build(),
+                ShortcutInfo.Builder(this, "birthdays").setShortLabel("تولدها").setLongLabel("باز کردن تولدها").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_my_calendar)).setIntent(android.content.Intent(this, MainActivity::class.java)).build()
+            )
+        }
+        setContent { YadavarApp(this) }
     }
 }
 
@@ -80,7 +89,9 @@ fun YadavarApp(context: Context) {
     var showDeleteCompleted by remember { mutableStateOf(false) }
     var taskToDelete by remember { mutableStateOf<TodoItem?>(null) }
     var birthdayToDelete by remember { mutableStateOf<StoredBirthday?>(null) }
-    var taskQuery by remember { mutableStateOf("") }\n    var unlocked by rememberSaveable { mutableStateOf(ExtraFeaturesStore.pin(context).isBlank()) }\n    var unlockPin by remember { mutableStateOf("") }
+    var taskQuery by remember { mutableStateOf("") }
+    var unlocked by rememberSaveable { mutableStateOf(ExtraFeaturesStore.pin(context).isBlank()) }
+    var unlockPin by remember { mutableStateOf("") }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
     val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
@@ -216,7 +227,11 @@ fun YadavarApp(context: Context) {
         }
     }
 
-    if (!unlocked) {\n        AlertDialog(onDismissRequest = {}, title = { Text("قفل برنامه") }, text = { OutlinedTextField(unlockPin, { unlockPin = it.filter(Char::isDigit).take(8) }, singleLine = true, label = { Text("PIN") }) }, confirmButton = { Button(onClick = { if (unlockPin == ExtraFeaturesStore.pin(context)) { unlocked = true; unlockPin = "" } }) { Text("ورود") } })\n    }\n\n    if (taskToDelete != null) {
+    if (!unlocked) {
+        AlertDialog(onDismissRequest = {}, title = { Text("قفل برنامه") }, text = { OutlinedTextField(unlockPin, { unlockPin = it.filter(Char::isDigit).take(8) }, singleLine = true, label = { Text("PIN") }) }, confirmButton = { Button(onClick = { if (unlockPin == ExtraFeaturesStore.pin(context)) { unlocked = true; unlockPin = "" } }) { Text("ورود") } })
+    }
+
+    if (taskToDelete != null) {
         val task = taskToDelete!!
         AlertDialog(
             onDismissRequest = { taskToDelete = null },
