@@ -118,6 +118,15 @@ object BackupManager {
         editor.putString("shopping", data.shopping.map(::clean).filter { it.isNotBlank() }.joinToString("\n"))
         editor.putBoolean("smart_auto_carry", data.settings.first)
         editor.putBoolean("compact_mode", data.settings.second)
+        val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
+        val ex = data.extra
+        ep.edit()
+            .putString("inbox", ex.optJSONArray("inbox")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }.joinToString("\n") } ?: "")
+            .putStringSet("archived_ids", ex.optJSONArray("archivedIds")?.let { a -> (0 until a.length()).mapNotNull { a.optInt(it, -1).takeIf { id -> id >= 0 } }.map { it.toString() }.toSet() } ?: emptySet())
+            .putString("templates", ex.optString("templates", ""))
+            .putInt("weekly_goal", ex.optInt("weeklyGoal", 10).coerceIn(1,999))
+            .putString("app_pin", ex.optString("appPin", ""))
+            .apply()
         editor.apply()
     }
 
@@ -203,7 +212,8 @@ object BackupManager {
             birthdays = birthdays.distinctBy { it.id },
             habits = habits,
             shopping = shopping.distinct(),
-            settings = settings
+            settings = settings,
+            extra = extra
         )
     }
 
