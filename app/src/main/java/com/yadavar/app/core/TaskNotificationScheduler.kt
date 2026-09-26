@@ -15,6 +15,11 @@ object TaskNotificationScheduler {
     private const val MAX_REMINDERS = 8
 
     fun scheduleAll(context: Context, tasks: List<com.yadavar.app.TodoItem>) {
+        val enabled = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE).getBoolean("task_notifications_enabled", true)
+        if (!enabled) {
+            tasks.forEach { cancelTask(context, it.id) }
+            return
+        }
         tasks.forEach { scheduleTask(context, it) }
     }
 
