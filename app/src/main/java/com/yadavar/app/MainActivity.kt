@@ -1,7 +1,7 @@
 package com.yadavar.app
 
 import android.Manifest
-import android.content.Context
+import android.content.Context\nimport android.content.pm.ShortcutInfo\nimport android.content.pm.ShortcutManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
 
-        setContent { YadavarApp(this) }
+        if (Build.VERSION.SDK_INT >= 25) {\n            val manager = getSystemService(ShortcutManager::class.java)\n            manager.dynamicShortcuts = listOf(\n                ShortcutInfo.Builder(this, "new_task").setShortLabel("کار جدید").setLongLabel("افزودن کار جدید").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_input_add)).setIntent(android.content.Intent(this, MainActivity::class.java)).build(),\n                ShortcutInfo.Builder(this, "birthdays").setShortLabel("تولدها").setLongLabel("باز کردن تولدها").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_my_calendar)).setIntent(android.content.Intent(this, MainActivity::class.java)).build()\n            )\n        }\n        setContent { YadavarApp(this) }
     }
 }
 
