@@ -370,12 +370,7 @@ fun YadavarApp(context: Context) {
         AddBirthdayDialog(dismiss = { addBirthday = false }) { name, m, d ->
             if (name.trim().isNotEmpty() && isValidBirthdayDate(m, d)) {
                 birthdays.add(
-                    StoredBirthday(
-                        (birthdays.maxOfOrNull { it.id } ?: 0) + 1,
-                        name.trim(),
-                        m,
-                        d
-                    )
+                    StoredBirthday((birthdays.maxOfOrNull { it.id } ?: 0) + 1, name.trim(), m, d, null, "1,0")
                 )
                 saveB()
             }
@@ -1029,14 +1024,14 @@ fun loadBirthdays(context: Context): List<StoredBirthday> {
         .getString("birthdays", null) ?: return emptyList()
 
     return raw.split("\n").mapNotNull { p ->
-        val x = p.split("\t", limit = 4)
+        val x = p.split("\t", limit = 6)
         if (x.size != 4) null
         else {
             val id = x[0].toIntOrNull()
             val m = x[2].toIntOrNull()
             val d = x[3].toIntOrNull()
             if (id == null || m == null || d == null || !isValidBirthdayDate(m, d)) null
-            else StoredBirthday(id, x[1], m, d)
+            else StoredBirthday(id, x[1], m, d, x.getOrNull(4)?.toIntOrNull()?.takeIf { it in 1900..2200 }, x.getOrNull(5).orEmpty().ifBlank { "1,0" })
         }
     }
 }
