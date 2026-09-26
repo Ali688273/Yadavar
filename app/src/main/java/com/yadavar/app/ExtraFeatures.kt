@@ -137,7 +137,8 @@ fun ExtraFeaturesScreen(context:Context,tasks:List<TodoItem>,onAdd:(TodoItem)->U
     val count=tasks.count{it.done&&it.dueDate.isNotBlank()&&runCatching{LocalDate.parse(it.dueDate)}.getOrNull() in days}
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Row(verticalAlignment=Alignment.CenterVertically){IconButton({onWeek(week.minusWeeks(1))}){Icon(Icons.Default.ChevronLeft,"هفته قبل")};Text("هفته "+start.format(EXTRA_DATE),Modifier.weight(1f),fontWeight=FontWeight.Bold);IconButton({onWeek(week.plusWeeks(1))}){Icon(Icons.Default.ChevronRight,"هفته بعد")}}
         Text("انجام‌شده این هفته: "+count+" از هدف "+goal);LinearProgressIndicator(progress={(count.toFloat()/goal).coerceIn(0f,1f)},Modifier.fillMaxWidth())
-        OutlinedTextField(goal.toString(),{onGoal(it.toIntOrNull()?:goal)},singleLine=true,label={Text("هدف هفتگی")});days.forEach{d->Text(d.dayOfWeek.name+": "+tasks.count{it.dueDate==d.toString()}+" کار")}
+        OutlinedTextField(goal.toString(),{onGoal(it.toIntOrNull()?:goal)},singleLine=true,label={Text("هدف هفتگی")});val dayNames=listOf("شنبه","یکشنبه","دوشنبه","سه‌شنبه","چهارشنبه","پنجشنبه","جمعه")
+        days.forEachIndexed{index,d->Text(dayNames[index]+": "+tasks.count{it.dueDate==d.toString()}+" کار")}
     }
 }
 @Composable private fun ReportPanel(tasks:List<TodoItem>){
