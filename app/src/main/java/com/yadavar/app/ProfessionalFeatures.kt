@@ -95,7 +95,7 @@ fun ProfessionalScreen(
                 }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(visible, key = { it.id }) { t ->
-                        AdvancedTaskCard(t, { onUpdate(t.copy(done = !t.done)) }, { editing = t }, { onDelete(t.id) })
+                        AdvancedTaskCard(context, t, { onUpdate(t.copy(done = !t.done)) }, { editing = t }, { onDelete(t.id) })
                     }
                 }
             }
@@ -103,7 +103,7 @@ fun ProfessionalScreen(
             4 -> FocusPanel()
             5 -> StatsPanel(tasks)
             6 -> ToolsPanel(context)
-            else -> CompleteFeaturesScreen(context, tasks, onUpdate, onDelete)
+            else -> ExtraFeaturesScreen(context, tasks, onAdd, onUpdate, onDelete)
         }
     }
     if (editing != null) {
@@ -126,7 +126,7 @@ private fun TodayPlan(tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) ->
             if (overdue > 0) Text("⚠ \$overdue کار عقب‌افتاده داری.", color = MaterialTheme.colorScheme.error)
             if (tasks.isEmpty()) Text("برای امروز کاری نداری؛ زمان را برای یک هدف مهم استفاده کن.")
             tasks.sortedWith(compareBy<TodoItem> { it.done }.thenByDescending { priorityRank(it.priority) }).forEach {
-                AdvancedTaskCard(it, { onToggle(it) }, { onEdit(it) }, {})
+                AdvancedTaskCard(context, it, { onToggle(it) }, { onEdit(it) }, {})
             }
             TextButton(onClick = onCreate) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(4.dp)); Text("کار برای امروز") }
         }
@@ -175,12 +175,12 @@ private fun CalendarPlanner(tasks: List<TodoItem>, selected: LocalDate, onSelect
         Text("تاریخ انتخاب‌شده: \${jalaliDate(selected)}", fontWeight = FontWeight.Bold)
         val dayTasks = tasks.filter { parseDate(it.dueDate) == selected }
         if (dayTasks.isEmpty()) Text("کاری برای این روز ثبت نشده.")
-        dayTasks.forEach { AdvancedTaskCard(it, {}, { onEdit(it) }, {}) }
+        dayTasks.forEach { AdvancedTaskCard(context, it, {}, { onEdit(it) }, {}) }
     }
 }
 
 @Composable
-private fun AdvancedTaskCard(task: TodoItem, toggle: () -> Unit, edit: () -> Unit, delete: () -> Unit) {
+private fun AdvancedTaskCard(context: Context, task: TodoItem, toggle: () -> Unit, edit: () -> Unit, delete: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(task.done, { toggle() })
@@ -194,7 +194,7 @@ private fun AdvancedTaskCard(task: TodoItem, toggle: () -> Unit, edit: () -> Uni
                 if (meta.isNotBlank()) Text(meta, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (task.note.isNotBlank()) Text(task.note, fontSize = 12.sp)
             }
-            IconButton(edit) { Icon(Icons.Default.Edit, "ویرایش") }
+            IconButton(edit) { Icon(Icons.Default.Edit, "ویرایش") }\n            IconButton({ ExtraFeaturesStore.setArchived(context, task.id, !ExtraFeaturesStore.archived(context).contains(task.id)) }) { Icon(if (ExtraFeaturesStore.archived(context).contains(task.id)) Icons.Default.Unarchive else Icons.Default.Archive, "آرشیو") }
             IconButton(delete) { Icon(Icons.Default.Delete, "حذف") }
         }
     }
