@@ -36,6 +36,9 @@ fun CompleteFeaturesScreen(
             Text("همه قابلیت‌های تکمیلی، آفلاین و بدون سرویس پولی.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
+            AdvancedSuiteScreen(context, tasks, onUpdate)
+        }
+        item {
             FeatureCard("🧠 روز من هوشمند", "عقب‌افتاده‌ها، امروز، مهم‌ها و یادآوری‌های نزدیک را اولویت‌بندی می‌کند.") {
                 SmartDaySection(overdue, dueToday, high, upcoming, autoCarry) { value ->
                     autoCarry = value
