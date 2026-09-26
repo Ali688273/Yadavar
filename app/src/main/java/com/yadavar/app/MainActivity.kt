@@ -420,9 +420,15 @@ fun TodoScreen(
     onRequestClear: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val done = tasks.count { it.done }
-    val filtered = if (query.isBlank()) tasks else tasks.filter {
-        it.title.contains(query.trim(), ignoreCase = true)
+    val done = visibleTasks.count { it.done }
+    val archived = ExtraFeaturesStore.archived(context = context)
+    val visibleTasks = tasks.filterNot { it.id in archived }
+    val filtered = if (query.isBlank()) visibleTasks else visibleTasks.filter {
+        val q = query.trim()
+        it.title.contains(q, ignoreCase = true) ||
+            it.note.contains(q, ignoreCase = true) ||
+            it.tags.contains(q, ignoreCase = true) ||
+            it.category.contains(q, ignoreCase = true)
     }
     val progress = if (tasks.isEmpty()) 0f else done.toFloat() / tasks.size.toFloat()
 
@@ -464,7 +470,7 @@ fun TodoScreen(
                 Text("حذف انجام‌شده‌ها")
             }
         }
-        if (tasks.isEmpty()) {
+        if (visibleTasks.isEmpty()) {
             Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
