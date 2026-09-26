@@ -72,6 +72,7 @@ object BirthdayNotificationScheduler {
             putExtra(BirthdayNotificationReceiver.EXTRA_DAY, day)
             putExtra(BirthdayNotificationReceiver.EXTRA_TYPE, if (daysBefore == 0) BirthdayNotificationReceiver.TYPE_TODAY else BirthdayNotificationReceiver.TYPE_BEFORE)
             putExtra(BirthdayNotificationReceiver.EXTRA_DAYS_BEFORE, daysBefore)
+            putExtra(BirthdayNotificationReceiver.EXTRA_REMINDER_OFFSETS, reminderOffsets)
         }
         val pendingIntent = PendingIntent.getBroadcast(context, code, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarm.canScheduleExactAlarms()) {
