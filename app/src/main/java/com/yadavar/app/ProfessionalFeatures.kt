@@ -77,10 +77,10 @@ fun ProfessionalScreen(
         }
         Spacer(Modifier.height(10.dp))
         when (section) {
-            0 -> TodayPlan(context, tasks = todayTasks, overdue = overdue, onEdit = { editing = it }, onToggle = onUpdate, onCreate = {
+            0 -> TodayPlan(context, tasks = todayTasks, overdue = overdue, onEdit = { editing = it }, onToggle = onUpdate, onDelete = onDelete, onCreate = {
                 editing = TodoItem(id = -1, title = "", startDate = today.toString(), dueDate = today.toString())
             })
-            1 -> CalendarPlanner(context, tasks = tasks, selected = selectedDate, onSelected = { selectedDate = it }, onEdit = { editing = it })
+            1 -> CalendarPlanner(context, tasks = tasks, selected = selectedDate, onSelected = { selectedDate = it }, onEdit = { editing = it }, onUpdate = onUpdate, onDelete = onDelete)
             2 -> {
                 OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("جستجو در عنوان، یادداشت و برچسب") }, leadingIcon = { Icon(Icons.Default.Search, null) })
                 Spacer(Modifier.height(8.dp))
@@ -119,7 +119,7 @@ fun ProfessionalScreen(
 }
 
 @Composable
-private fun TodayPlan(context: Context, tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) -> Unit, onToggle: (TodoItem) -> Unit, onCreate: () -> Unit) {
+private fun TodayPlan(context: Context, tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) -> Unit, onToggle: (TodoItem) -> Unit, onDelete: (Int) -> Unit, onCreate: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("امروز من", fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -128,7 +128,7 @@ private fun TodayPlan(context: Context, tasks: List<TodoItem>, overdue: Int, onE
             if (overdue > 0) Text("⚠ $overdue کار عقب‌افتاده داری.", color = MaterialTheme.colorScheme.error)
             if (tasks.isEmpty()) Text("برای امروز کاری نداری؛ زمان را برای یک هدف مهم استفاده کن.")
             tasks.sortedWith(compareBy<TodoItem> { it.done }.thenByDescending { priorityRank(it.priority) }).forEach {
-                AdvancedTaskCard(context, it, { onToggle(it) }, { onEdit(it) }, {})
+                AdvancedTaskCard(context, it, { onToggle(it) }, { onEdit(it) }, { onDelete(it.id) })
             }
             TextButton(onClick = onCreate) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(4.dp)); Text("کار برای امروز") }
         }
@@ -136,7 +136,7 @@ private fun TodayPlan(context: Context, tasks: List<TodoItem>, overdue: Int, onE
 }
 
 @Composable
-private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: LocalDate, onSelected: (LocalDate) -> Unit, onEdit: (TodoItem) -> Unit) {
+private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: LocalDate, onSelected: (LocalDate) -> Unit, onEdit: (TodoItem) -> Unit, onUpdate: (TodoItem) -> Unit, onDelete: (Int) -> Unit) {
     var mode by remember { mutableStateOf("month") }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("day" to "روز", "week" to "هفته", "month" to "ماه").forEach { (v, l) ->
@@ -198,7 +198,7 @@ private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: L
         Text("تاریخ انتخاب‌شده: ${jalaliDate(selected)}", fontWeight = FontWeight.Bold)
         val dayTasks = tasks.filter { parseDate(it.dueDate) == selected }
         if (dayTasks.isEmpty()) Text("کاری برای این روز ثبت نشده.")
-        dayTasks.forEach { AdvancedTaskCard(context, it, {}, { onEdit(it) }, {}) }
+        dayTasks.forEach { AdvancedTaskCard(context, it, { onUpdate(it.copy(done = !it.done)) }, { onEdit(it) }, { onDelete(it.id) }) }
     }
 }
 
