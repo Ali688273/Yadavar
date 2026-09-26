@@ -165,7 +165,24 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 
 @Composable private fun SubtaskPanel(c:Context,tasks:List<TodoItem>){
     var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)};var title by remember{mutableStateOf("")};var parent by remember{mutableStateOf("-1")};var refresh by remember{mutableIntStateOf(0)}
-    Column(Modifier.fillMaxSize().padding(12.dp)){Text("زیرکارهای چندسطحی",fontSize=20.sp);TaskChoice(tasks,id){id=it};OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),label={Text("عنوان")});OutlinedTextField(parent,{parent=it},Modifier.fillMaxWidth(),label={Text("والد ID")});Button({if(title.isNotBlank()){val a=UltimateStore.subtasks(c,id);val n=(0 until a.length()).map{a.optJSONObject(it)?.optInt("id",0)?:0}.maxOrNull()?.plus(1)?:1;a.put(JSONObject().put("id",n).put("title",title).put("parent",parent.toIntOrNull()?:-1));UltimateStore.setSubtasks(c,id,a);title="";refresh++}}){Text("افزودن")};LazyColumn{items((0 until UltimateStore.subtasks(c,id).length()).map{UltimateStore.subtasks(c,id).getJSONObject(it)}+JSONObject().put("id",-1).put("title","").let{emptyList()}){}}}
+    Column(Modifier.fillMaxSize().padding(12.dp)){Text("زیرکارهای چندسطحی",fontSize=20.sp);TaskChoice(tasks,id){id=it};OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),label={Text("عنوان")});OutlinedTextField(parent,{parent=it},Modifier.fillMaxWidth(),label={Text("والد ID")});Button({if(title.isNotBlank()){val a=UltimateStore.subtasks(c,id);val n=(0 until a.length()).map{a.optJSONObject(it)?.optInt("id",0)?:0}.maxOrNull()?.plus(1)?:1;a.put(JSONObject().put("id",n).put("title",title).put("parent",parent.toIntOrNull()?:-1));UltimateStore.setSubtasks(c,id,a);title="";refresh++}}){Text("افزودن")};val tree=UltimateStore.subtasks(c,id)
+        fun flatten(parent:Int,depth:Int):List<Pair<JSONObject,Int>>{
+            val out=mutableListOf<Pair<JSONObject,Int>>()
+            for(i in 0 until tree.length()){
+                val o=tree.getJSONObject(i)
+                if(o.optInt("parent",-1)==parent){out.add(o to depth);out.addAll(flatten(o.optInt("id",-1),depth+1))}
+            }
+            return out
+        }
+        LazyColumn{items(flatten(-1,0),key={it.first.optInt("id")}){pair->
+            Card(Modifier.fillMaxWidth().padding(start=(pair.second*18).dp,end=3.dp,top=3.dp)){
+                Row(Modifier.padding(9.dp),verticalAlignment=Alignment.CenterVertically){
+                    Text(pair.first.optString("title"),Modifier.weight(1f))
+                    Text("ID "+pair.first.optInt("id"))
+                }
+            }
+        }}
+    }
 }
 
 @Composable private fun TagPanel(c:Context){
