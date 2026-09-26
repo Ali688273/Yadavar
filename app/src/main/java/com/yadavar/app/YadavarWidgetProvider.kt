@@ -15,7 +15,10 @@ class YadavarWidgetProvider : AppWidgetProvider() {
             val total = if (tasks.isBlank()) 0 else tasks.lines().count { it.isNotBlank() }
             val done = if (tasks.isBlank()) 0 else tasks.lines().count { it.isNotBlank() && it.split("\t").getOrNull(1) == "1" }
             views.setTextViewText(R.id.widget_title, "یادآور")
-            views.setTextViewText(R.id.widget_count, "‎$done از $total کار انجام شده")
+            val remaining = (total - done).coerceAtLeast(0)
+            val nextTitle = tasks.lines().asSequence().filter { it.isNotBlank() && it.split("\t").getOrNull(1) != "1" }.map { it.split("\t").getOrNull(2).orEmpty() }.firstOrNull { it.isNotBlank() } ?: "کاری باقی نمانده"
+            views.setTextViewText(R.id.widget_count, "‎$done از $total انجام شده • باقی‌مانده: $remaining")
+            views.setTextViewText(R.id.widget_next, "بعدی: $nextTitle")
             views.setOnClickPendingIntent(
                 R.id.widget_root,
                 android.app.PendingIntent.getActivity(
