@@ -8,6 +8,7 @@ import android.os.Build
 import java.util.Calendar
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import org.json.JSONObject
 
 object TaskNotificationScheduler {
     private const val BASE = 300000
@@ -36,7 +37,7 @@ object TaskNotificationScheduler {
         if (reminders.isEmpty()) return
 
         reminders.forEachIndexed { index, reminder ->
-            val next = nextTrigger(task, reminder.hour, reminder.minute) ?: return@forEachIndexed
+            val next = nextTrigger(context, task, reminder.hour, reminder.minute) ?: return@forEachIndexed
             setAlarm(
                 context = context,
                 taskId = task.id,
@@ -50,7 +51,7 @@ object TaskNotificationScheduler {
         }
     }
 
-    private fun nextTrigger(task: com.yadavar.app.TodoItem, hour: Int, minute: Int): Long? {
+    private fun nextTrigger(context: Context, task: com.yadavar.app.TodoItem, hour: Int, minute: Int): Long? {
         if (hour !in 0..23 || minute !in 0..59) return null
         val now = Calendar.getInstance()
         val next = Calendar.getInstance().apply {
@@ -58,6 +59,37 @@ object TaskNotificationScheduler {
             set(Calendar.MINUTE, minute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
+        }
+
+        val advanced = runCatching {
+            val root = context.getSharedPreferences("yadavar_ultimate", Context.MODE_PRIVATE)
+                .getString("repeat_rules", "{}") ?: "{}"
+            JSONObject(root).optJSONObject(task.id.toString())
+        }.getOrNull()
+        if (advanced != null) {
+            val every = advanced.optInt("every", task.customEvery).coerceAtLeast(1)
+            val unit = advanced.optString("unit", task.customUnit).lowercase()
+            val end = advanced.optString("end", "").takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            val allowed = advanced.optString("days", "").split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+            var guard = 0
+            while (next.timeInMillis <= now.timeInMillis && guard++ < 10000) {
+                when (unit) {
+                    "week", "هفته", "هفتگی" -> next.add(Calendar.WEEK_OF_YEAR, every)
+                    "month", "ماه", "ماهانه" -> next.add(Calendar.MONTH, every)
+                    "year", "سال", "سالانه" -> next.add(Calendar.YEAR, every)
+                    else -> next.add(Calendar.DAY_OF_YEAR, every)
+                }
+            }
+            if (allowed.isNotEmpty()) {
+                fun dayName(cal: Calendar): String = when(cal.get(Calendar.DAY_OF_WEEK)) {
+                    Calendar.SATURDAY -> "شنبه"; Calendar.SUNDAY -> "یکشنبه"; Calendar.MONDAY -> "دوشنبه"
+                    Calendar.TUESDAY -> "سه‌شنبه"; Calendar.WEDNESDAY -> "چهارشنبه"; Calendar.THURSDAY -> "پنجشنبه"; else -> "جمعه"
+                }
+                guard = 0
+                while (dayName(next).lowercase() !in allowed && guard++ < 14) next.add(Calendar.DAY_OF_YEAR,1)
+            }
+            if (end != null && LocalDate.of(next.get(Calendar.YEAR), next.get(Calendar.MONTH)+1, next.get(Calendar.DAY_OF_MONTH)).isAfter(end)) return null
+            return next.timeInMillis
         }
 
         when (task.repeat) {
