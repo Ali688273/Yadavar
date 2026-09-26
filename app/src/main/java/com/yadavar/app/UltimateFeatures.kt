@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -233,7 +234,10 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 
 @Composable private fun StatsPanel(tasks:List<TodoItem>){
     val total=tasks.size;val done=tasks.count{it.done};val open=total-done;val over=tasks.count{!it.done&&it.dueDate.isNotBlank()&&it.dueDate<LocalDate.now().toString()}
-    LazyColumn(Modifier.fillMaxSize().padding(12.dp)){item{Text("آمار و نمودار حرفه‌ای",fontSize=20.sp);Text("کل: "+total);Text("انجام: "+done);Text("باز: "+open);Text("عقب‌افتاده: "+over);Text("نرخ تکمیل: "+if(total==0)0 else done*100/total+"٪")};items((0..6).toList()){n->val d=LocalDate.now().minusDays(n.toLong());val v=tasks.count{it.done&&it.dueDate==d.toString()};Row(Modifier.fillMaxWidth().padding(4.dp)){Text(JalaliDate.toJalali(d),Modifier.width(90.dp));LinearProgressIndicator({(v.toFloat()/kotlin.math.max(1,total)).coerceIn(0f,1f)},Modifier.weight(1f));Text(" "+v)}}}
+    val week=(0..6).reversed().map{n->val d=LocalDate.now().minusDays(n.toLong());d to tasks.count{it.done&&it.dueDate==d.toString()}}
+    LazyColumn(Modifier.fillMaxSize().padding(12.dp)){item{Text("آمار و نمودار حرفه‌ای",fontSize=20.sp);Text("کل: "+total);Text("انجام: "+done);Text("باز: "+open);Text("عقب‌افتاده: "+over);Text("نرخ تکمیل: "+if(total==0)0 else done*100/total+"٪")}
+        item{Canvas(Modifier.fillMaxWidth().height(180.dp).padding(8.dp)){val max=week.maxOfOrNull{it.second}?:0;if(max>0){val w=size.width/week.size;week.forEachIndexed{i,p->{val h=size.height*(p.second.toFloat()/max.toFloat());drawRect(MaterialTheme.colorScheme.primary,topLeft=androidx.compose.ui.geometry.Offset(i*w,size.height-h),size=androidx.compose.ui.geometry.Size(w*0.65f,h))}}}}}
+        items(week){p->Row(Modifier.fillMaxWidth().padding(4.dp)){Text(JalaliDate.toJalali(p.first),Modifier.width(90.dp));Text("انجام‌شده: "+p.second)}}}
 }
 
 @Composable private fun JalaliPanel(c:Context,tasks:List<TodoItem>,update:(TodoItem)->Unit){
