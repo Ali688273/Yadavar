@@ -785,6 +785,7 @@ fun BirthdayScreen(
                                 Text(b.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                                 Text("تاریخ: " + b.day + "/" + b.month, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(if (r.isToday) "امروز تولدشه 🎉" else r.daysUntil.toString() + " روز تا تولد")
+                                b.year?.let { y -> if (y in 1900..2200) Text("سن: " + birthdayAge(y, b.month, b.day)) }
                             }
                             IconButton({ edit(b) }) { Icon(Icons.Default.Edit, "ویرایش") }
                             IconButton({ delete(b) }) { Icon(Icons.Default.Delete, "حذف") }
@@ -1126,3 +1127,5 @@ private fun hashPin(value: String): String =
     MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it) }
+
+private fun birthdayAge(year: Int, month: Int, day: Int): Int { val today = java.time.LocalDate.now(); val adjusted = if (month == 2 && day == 29 && !today.isLeapYear) java.time.LocalDate.of(today.year, 3, 1) else java.time.LocalDate.of(today.year, month, day); return today.year - year - if (today.isBefore(adjusted)) 1 else 0 }
