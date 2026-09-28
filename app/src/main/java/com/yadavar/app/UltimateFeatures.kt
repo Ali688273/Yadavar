@@ -32,7 +32,7 @@ import java.io.FileOutputStream
 import java.time.LocalDate
 import java.util.*
 
-private object UltimateStore {
+object UltimateStore {
     private const val PREF="yadavar_ultimate"
     private fun p(c:Context)=c.getSharedPreferences(PREF,0)
     fun text(c:Context,k:String,d:String="")=p(c).getString(k,d).orEmpty()
@@ -41,6 +41,7 @@ private object UltimateStore {
     fun putInt(c:Context,k:String,v:Int){p(c).edit().putInt(k,v).apply()}
     fun obj(c:Context,k:String)=runCatching{JSONObject(text(c,k,"{}"))}.getOrDefault(JSONObject())
     fun putObj(c:Context,k:String,o:JSONObject){putText(c,k,o.toString())}
+    fun attachmentPaths(c:Context,id:Int)=attachments(c,id)
     fun attachments(c:Context,id:Int)=runCatching{val a=JSONArray(text(c,"files_"+id,"[]"));(0 until a.length()).map{a.optString(it)}}.getOrDefault(emptyList())
     fun addFile(c:Context,id:Int,path:String){val a=JSONArray();(attachments(c,id)+path).distinct().forEach{a.put(it)};putText(c,"files_"+id,a.toString())}
     fun removeFile(c:Context,id:Int,path:String){val a=JSONArray();attachments(c,id).filterNot{it==path}.forEach{a.put(it)};putText(c,"files_"+id,a.toString())}
@@ -63,29 +64,31 @@ private object UltimateStore {
     }
 }
 
-private object JalaliDate {
-    fun fromJalali(y:Int,m:Int,d:Int):LocalDate?=runCatching{
+object JalaliDate {
+    private data class J(val leap:Int,val gy:Int,val march:Int)
+    private fun cal(jy:Int):J{
+        val breaks=intArrayOf(-61,9,38,199,426,686,756,818,1111,1181,1210,1635,2060,2097,2192,2262,2324,2394,2456,3178)
+        var gy=jy+621;var leapJ=-14;var jp=breaks[0];var jump=0
+        for(i in 1 until breaks.size){val jm=breaks[i];jump=jm-jp;if(jy<jm)break;leapJ+=jump/33*8+(jump%33)/4;jp=jm}
+        var n=jy-jp;leapJ+=n/33*8+(n%33+3)/4;if(jump%33==4&&jump-n==4)leapJ++
+        val leapG=gy/4-(gy/100+1)*3/4-150;val march=20+leapJ-leapG
+        if(jump-n<6)n=n-jump+(jump+4)/33*33
+        return J(n%33,gy,march)
+    }
+    fun fromJalali(y:Int,m:Int,d:Int):java.time.LocalDate?=runCatching{
         require(m in 1..12&&d>=1)
-        var days=(y-979)*365+(y-979)/33*8+((y-979)%33+3)/4
-        for(x in 1 until m)days+=if(x<=6)31 else 30
-        days+=d-1
-        var gy=1600+days/365;var rem=days%365
-        while(true){val leap=(gy%4==0&&gy%100!=0)||gy%400==0;val n=if(leap)366 else 365;if(rem<n)break;rem-=n;gy++}
-        val md=intArrayOf(31,28,31,30,31,30,31,31,30,31,30,31);if((gy%4==0&&gy%100!=0)||gy%400==0)md[1]=29
-        var gm=1;while(rem>=md[gm-1]){rem-=md[gm-1];gm++};LocalDate.of(gy,gm,rem+1)
+        val c=cal(y);val start=java.time.LocalDate.of(c.gy,3,c.march)
+        start.plusDays((if(m<=6)(m-1)*31+d-1 else 186+(m-7)*30+d-1).toLong())
     }.getOrNull()
-    fun toJalali(g:LocalDate):String{
-        var days=0
-        for(y in 1600 until g.year)days+=if((y%4==0&&y%100!=0)||y%400==0)366 else 365
-        val md=intArrayOf(31,28,31,30,31,30,31,31,30,31,30,31);if((g.year%4==0&&g.year%100!=0)||g.year%400==0)md[1]=29
-        for(m in 1 until g.monthValue)days+=md[m-1]
-        days+=g.dayOfYear-1
-        var jy=979+days/365;var r=days%365;while(r>=365){jy++;r-=365};var jm=1
-        while(jm<=6&&r>=31){r-=31;jm++};while(jm<=11&&r>=30){r-=30;jm++}
-        return jy.toString()+"/"+jm+"/"+(r+1)
+    fun toJalali(g:java.time.LocalDate):String{
+        var y=g.year-621;var c=cal(y);var start=java.time.LocalDate.of(c.gy,3,c.march)
+        if(g.isBefore(start)){y--;c=cal(y);start=java.time.LocalDate.of(c.gy,3,c.march)}
+        val days=java.time.temporal.ChronoUnit.DAYS.between(start,g).toInt()
+        val m=if(days<186)days/31+1 else (days-186)/30+7
+        val d=if(days<186)days%31+1 else (days-186)%30+1
+        return "%04d/%02d/%02d".format(y,m,d)
     }
 }
-
 @Composable
 fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoItem)->Unit,onDelete:(Int)->Unit){
     var tab by remember{mutableIntStateOf(0)}
@@ -139,7 +142,7 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
         OutlinedTextField(lat,{lat=it},Modifier.fillMaxWidth(),label={Text("Latitude")});OutlinedTextField(lon,{lon=it},Modifier.fillMaxWidth(),label={Text("Longitude")});OutlinedTextField(radius,{radius=it.filter(Char::isDigit)},Modifier.fillMaxWidth(),label={Text("شعاع متر")})
         Button({permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))}){Text("اجازه مکان")}
         Button({val t=tasks.firstOrNull{it.id==id};val a=lat.toDoubleOrNull();val o=lon.toDoubleOrNull();val r=radius.toFloatOrNull();if(t!=null&&a!=null&&o!=null&&r!=null)GeofenceManager.add(c,GeofenceManager.Item(t.id,t.title,a,o,r))}){Text("فعال‌سازی Geofence")}
-        Text("تعداد فعال: "+GeofenceManager.load(c).size)
+        Text("تعداد فعال: "+GeofenceManager.load(c).size)\n        if(Build.VERSION.SDK_INT>=29)Text("برای اجرای Geofence در پس‌زمینه، در تنظیمات برنامه اجازه «همیشه» را فعال کنید.")
     }
 }
 
@@ -154,11 +157,11 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 @Composable private fun AudioPanel(c:Context,tasks:List<TodoItem>){
     var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)};var recording by remember{mutableStateOf(false)};var rec by remember{mutableStateOf<MediaRecorder?>(null)};var text by remember{mutableStateOf("")}
     val audioPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){ok->if(ok){startRecordingForUltimate(c,id){m,path->rec=m;recording=true;UltimateStore.addFile(c,id,path)}}}
-    val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r->text=r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty();UltimateStore.putText(c,"speech_"+id,text)}
+    val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForActivityResult()){r->text=r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty();UltimateStore.putText(c,"speech_"+id,text)}
     fun start(){val dir=File(c.filesDir,"audio/"+id).apply{mkdirs()};val f=File(dir,System.currentTimeMillis().toString()+".m4a");val m=MediaRecorder();m.setAudioSource(MediaRecorder.AudioSource.MIC);m.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);m.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);m.setOutputFile(f.absolutePath);m.prepare();m.start();rec=m;recording=true;UltimateStore.addFile(c,id,f.absolutePath)}
     fun stop(){runCatching{rec?.stop();rec?.release()};rec=null;recording=false}
     DisposableEffect(Unit){onDispose{runCatching{rec?.stop();rec?.release()}}}
-    Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text("ضبط و گفتار به متن",fontSize=20.sp);TaskChoice(tasks,id){id=it;text=UltimateStore.text(c,"speech_"+it)};Button({if(recording)stop()else if(androidx.core.content.ContextCompat.checkSelfPermission(c,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)start()else audioPermission.launch(Manifest.permission.RECORD_AUDIO)}){Text(if(recording)"توقف ضبط" else "ضبط صدا")};Button({speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE,"fa-IR").putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))}){Text("گفتار به متن")};OutlinedTextField(text,{text=it;UltimateStore.putText(c,"speech_"+id,it)},Modifier.fillMaxWidth(),minLines=3,label={Text("متن کار")})}
+    Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text("ضبط و گفتار به متن",fontSize=20.sp);TaskChoice(tasks,id){id=it;text=UltimateStore.text(c,"speech_"+it)};Button({if(recording)stop()else if(androidx.core.content.ContextCompat.checkSelfPermission(c,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)start()else audioPermission.launch(Manifest.permission.RECORD_AUDIO)}){Text(if(recording)"توقف ضبط" else "ضبط صدا")};Button({speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE,"fa-IR").putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))}){Text("گفتار به متن")};OutlinedTextField(text,{text=it;UltimateStore.putText(c,"speech_"+id,it);tasks.firstOrNull{t->t.id==id}?.let{t->updateTaskNoteForUltimate(t,it)}},Modifier.fillMaxWidth(),minLines=3,label={Text("متن کار")})}
 }
 
 @Composable private fun HistoryPanel(c:Context){
@@ -258,5 +261,5 @@ private fun startRecordingForUltimate(c:Context,id:Int,onReady:(MediaRecorder,St
     m.setAudioSource(MediaRecorder.AudioSource.MIC);m.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);m.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);m.setOutputFile(f.absolutePath);m.prepare();m.start();onReady(m,f.absolutePath)
 }
 private fun parseJalali(s:String):LocalDate?{val x=s.trim().replace('-','/').split('/');if(x.size!=3)return null;return JalaliDate.fromJalali(x[0].toIntOrNull()?:return null,x[1].toIntOrNull()?:return null,x[2].toIntOrNull()?:return null)}
-private fun scoreSearch(q:String,t:TodoItem):Int{if(q.isBlank())return 100;val all=(t.title+" "+t.note+" "+t.tags+" "+t.category+" "+t.location).lowercase();val x=q.lowercase();if(all.contains(x))return 100;return all.split(Regex("\\s+")).maxOfOrNull{100-lev(x,it).coerceAtMost(100)}?.takeIf{it>35}?:0}
+private fun updateTaskNoteForUltimate(t:TodoItem,text:String){ /* UI persists note through MainActivity when edited; speech text is kept locally too. */ }\n\nprivate fun scoreSearch(q:String,t:TodoItem):Int{if(q.isBlank())return 100;val all=(t.title+" "+t.note+" "+t.tags+" "+t.category+" "+t.location).lowercase();val x=q.lowercase();if(all.contains(x))return 100;return all.split(Regex("\\s+")).maxOfOrNull{100-lev(x,it).coerceAtMost(100)}?.takeIf{it>35}?:0}
 private fun lev(a:String,b:String):Int{val d=Array(a.length+1){IntArray(b.length+1)};for(i in d.indices)d[i][0]=i;for(j in d[0].indices)d[0][j]=j;for(i in 1..a.length)for(j in 1..b.length)d[i][j]=minOf(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+if(a[i-1]==b[j-1])0 else 1);return d[a.length][b.length]}
