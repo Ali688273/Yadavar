@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import com.yadavar.app.core.GeofenceManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -153,11 +154,30 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 }
 
 @Composable private fun FilePanel(c:Context,tasks:List<TodoItem>){
-    var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)};var refresh by remember{mutableIntStateOf(0)}
+    var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)}
+    var refresh by remember{mutableIntStateOf(0)}
     val pick=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
-        if(uri!=null)runCatching{val dir=File(c.filesDir,"attachments/"+id).apply{mkdirs()};val out=File(dir,System.currentTimeMillis().toString()+".bin");c.contentResolver.openInputStream(uri)?.use{input->FileOutputStream(out).use{input.copyTo(it)}};UltimateStore.addFile(c,id,out.absolutePath);refresh++}
+        if(uri!=null)runCatching{
+            val dir=File(c.filesDir,"attachments/"+id).apply{mkdirs()}
+            val name=(uri.lastPathSegment?.substringAfterLast('/').orEmpty()).ifBlank{"attachment_"+System.currentTimeMillis()}
+            val safe=name.replace(Regex("[^A-Za-z0-9._-]"),"_")
+            val out=File(dir,System.currentTimeMillis().toString()+"_"+safe)
+            c.contentResolver.openInputStream(uri)?.use{input->FileOutputStream(out).use{input.copyTo(it)}}
+            UltimateStore.addFile(c,id,out.absolutePath);refresh++
+        }
     }
-    Column(Modifier.fillMaxSize().padding(12.dp)){Text("پیوست واقعی",fontSize=20.sp);TaskChoice(tasks,id){id=it};Button({pick.launch(arrayOf("*/*"))}){Text("افزودن فایل")};LazyColumn{items(UltimateStore.attachments(c,id),key={it+refresh.toString()}){p->Row(Modifier.fillMaxWidth().padding(6.dp)){Text(File(p).name,Modifier.weight(1f));IconButton({File(p).delete();UltimateStore.removeFile(c,id,p);refresh++}){Icon(Icons.Default.Delete,null)}}}}}
+    Column(Modifier.fillMaxSize().padding(12.dp)){
+        Text("پیوست واقعی",fontSize=20.sp);TaskChoice(tasks,id){id=it}
+        Button({pick.launch(arrayOf("*/*"))}){Text("افزودن فایل")}
+        LazyColumn{items(UltimateStore.attachments(c,id),key={it+refresh.toString()}){path->
+            Row(Modifier.fillMaxWidth().padding(6.dp)){
+                Text(File(path).name,Modifier.weight(1f))
+                IconButton({openAttachment(c,path)}){Icon(Icons.Default.OpenInNew,null)}
+                IconButton({shareAttachment(c,path)}){Icon(Icons.Default.Share,null)}
+                IconButton({deletePath(File(path));UltimateStore.removeFile(c,id,path);refresh++}){Icon(Icons.Default.Delete,null)}
+            }
+        }}
+    }
 }
 
 @Composable private fun AudioPanel(c:Context,tasks:List<TodoItem>,update:(TodoItem)->Unit){
@@ -297,3 +317,18 @@ private fun startRecordingForUltimate(c:Context,id:Int,onReady:(MediaRecorder,St
 private fun parseJalali(s:String):LocalDate?{val x=s.trim().replace('-','/').split('/');if(x.size!=3)return null;return JalaliDate.fromJalali(x[0].toIntOrNull()?:return null,x[1].toIntOrNull()?:return null,x[2].toIntOrNull()?:return null)}
 private fun scoreSearch(q:String,t:TodoItem):Int{if(q.isBlank())return 100;val all=(t.title+" "+t.note+" "+t.tags+" "+t.category+" "+t.location).lowercase();val x=q.lowercase();if(all.contains(x))return 100;return all.split(Regex("\\s+")).maxOfOrNull{100-lev(x,it).coerceAtMost(100)}?.takeIf{it>35}?:0}
 private fun lev(a:String,b:String):Int{val d=Array(a.length+1){IntArray(b.length+1)};for(i in d.indices)d[i][0]=i;for(j in d[0].indices)d[0][j]=j;for(i in 1..a.length)for(j in 1..b.length)d[i][j]=minOf(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+if(a[i-1]==b[j-1])0 else 1);return d[a.length][b.length]}
+
+private fun openAttachment(c:Context,path:String){
+    runCatching{
+        val file=File(path);val uri=FileProvider.getUriForFile(c,c.packageName+".fileprovider",file)
+        val i=Intent(Intent.ACTION_VIEW).apply{setDataAndType(uri,"*/*");addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)}
+        c.startActivity(i)
+    }.onFailure{android.widget.Toast.makeText(c,"برنامه‌ای برای باز کردن فایل پیدا نشد",android.widget.Toast.LENGTH_SHORT).show()}
+}
+private fun shareAttachment(c:Context,path:String){
+    runCatching{
+        val file=File(path);val uri=FileProvider.getUriForFile(c,c.packageName+".fileprovider",file)
+        val i=Intent(Intent.ACTION_SEND).apply{type="*/*";putExtra(Intent.EXTRA_STREAM,uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)}
+        c.startActivity(Intent.createChooser(i,"اشتراک‌گذاری فایل"))
+    }
+}
