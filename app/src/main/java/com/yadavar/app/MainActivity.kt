@@ -1037,7 +1037,7 @@ fun loadBirthdays(context: Context): List<StoredBirthday> {
 
     return raw.split("\n").mapNotNull { p ->
         val x = p.split("\t", limit = 6)
-        if (x.size != 4) null
+        if (x.size < 4) null
         else {
             val id = x[0].toIntOrNull()
             val m = x[2].toIntOrNull()
