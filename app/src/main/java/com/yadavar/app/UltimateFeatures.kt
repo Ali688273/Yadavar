@@ -229,22 +229,25 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 }
 
 @Composable private fun SubtaskPanel(c:Context,tasks:List<TodoItem>){
-    var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)};var title by remember{mutableStateOf("")};var parent by remember{mutableStateOf("-1")};var refresh by remember{mutableIntStateOf(0)}
-    Column(Modifier.fillMaxSize().padding(12.dp)){Text("زیرکارهای چندسطحی",fontSize=20.sp);TaskChoice(tasks,id){id=it};OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),label={Text("عنوان")});OutlinedTextField(parent,{parent=it},Modifier.fillMaxWidth(),label={Text("والد ID")});Button({if(title.isNotBlank()){val a=UltimateStore.subtasks(c,id);val n=(0 until a.length()).map{a.optJSONObject(it)?.optInt("id",0)?:0}.maxOrNull()?.plus(1)?:1;a.put(JSONObject().put("id",n).put("title",title).put("parent",parent.toIntOrNull()?:-1));UltimateStore.setSubtasks(c,id,a);title="";refresh++}}){Text("افزودن")};val tree=UltimateStore.subtasks(c,id)
-        fun flatten(parent:Int,depth:Int):List<Pair<JSONObject,Int>>{
-            val out=mutableListOf<Pair<JSONObject,Int>>()
-            for(i in 0 until tree.length()){
-                val o=tree.getJSONObject(i)
-                if(o.optInt("parent",-1)==parent){out.add(o to depth);out.addAll(flatten(o.optInt("id",-1),depth+1))}
-            }
-            return out
-        }
-        LazyColumn{items(flatten(-1,0),key={it.first.optInt("id")}){pair->
-            Card(Modifier.fillMaxWidth().padding(start=(pair.second*18).dp,end=3.dp,top=3.dp)){
-                Row(Modifier.padding(9.dp),verticalAlignment=Alignment.CenterVertically){
-                    Text(pair.first.optString("title"),Modifier.weight(1f))
-                    Text("ID "+pair.first.optInt("id"))
-                }
+    var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)}
+    var title by remember{mutableStateOf("")};var parent by remember{mutableStateOf("-1")};var refresh by remember{mutableIntStateOf(0)}
+    fun data()=UltimateStore.subtasks(c,id)
+    fun flat(a:JSONArray,parentId:Int,depth:Int,seen:MutableSet<Int>):List<Pair<JSONObject,Int>>{
+        val out=mutableListOf<Pair<JSONObject,Int>>()
+        for(i in 0 until a.length()){val o=a.optJSONObject(i)?:continue;val oid=o.optInt("id",-1);if(o.optInt("parent",-1)==parentId&&seen.add(oid)){out+=o to depth;out+=flat(a,oid,depth+1,seen)}}
+        return out
+    }
+    Column(Modifier.fillMaxSize().padding(12.dp)){
+        Text("زیرکارهای چندسطحی واقعی",fontSize=20.sp);TaskChoice(tasks,id){id=it}
+        OutlinedTextField(title,{title=it},Modifier.fillMaxWidth(),label={Text("عنوان زیرکار")})
+        OutlinedTextField(parent,{parent=it.filter{ch->ch=='-'||ch.isDigit()}},Modifier.fillMaxWidth(),label={Text("والد ID؛ -1 برای ریشه")})
+        Button({val a=data();val p=parent.toIntOrNull()?:-1;val next=(0 until a.length()).mapNotNull{a.optJSONObject(it)?.optInt("id")}.maxOrNull()?.plus(1)?:1;val validParent=p<0||(0 until a.length()).any{a.optJSONObject(it)?.optInt("id")==p};if(title.isNotBlank()&&validParent){a.put(JSONObject().put("id",next).put("title",title).put("parent",p).put("done",false));UltimateStore.setSubtasks(c,id,a);title="";refresh++}}){Text("افزودن")}
+        LazyColumn{items(flat(data(),-1,0,mutableSetOf()),key={it.first.optInt("id")}){pair->
+            val o=pair.first;val oid=o.optInt("id")
+            Row(Modifier.fillMaxWidth().padding(start=(pair.second*18).dp,top=4.dp),verticalAlignment=Alignment.CenterVertically){
+                Checkbox(o.optBoolean("done"),{val a=data();for(i in 0 until a.length()){val x=a.optJSONObject(i);if(x?.optInt("id")==oid)x.put("done",it)};UltimateStore.setSubtasks(c,id,a);refresh++})
+                Text(o.optString("title"),Modifier.weight(1f))
+                IconButton({val a=data();val rebuilt=JSONArray();for(i in 0 until a.length()){if(a.optJSONObject(i)?.optInt("id")!=oid)rebuilt.put(a.optJSONObject(i))};UltimateStore.setSubtasks(c,id,rebuilt);refresh++}){Icon(Icons.Default.Delete,null)}
             }
         }}
     }
