@@ -3,7 +3,7 @@ package com.yadavar.app.core
 import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
-import org.json.JSONObject
+import org.json.JSONObject\nimport android.util.Base64\nimport java.io.File
 import com.yadavar.app.TodoItem
 
 object BackupManager {
@@ -81,6 +81,31 @@ object BackupManager {
             habitHistory.put(name, JSONArray(prefs.getStringSet("habit_dates_" + name, emptySet()) ?: emptySet<String>()))
         }
         extra.put("habitHistory", habitHistory)
+        // Include all Ultimate feature state and app-private media so restore is complete.
+        val up = context.getSharedPreferences("yadavar_ultimate", Context.MODE_PRIVATE)
+        val ultimatePrefs = JSONObject()
+        up.all.forEach { (key, value) ->
+            when (value) {
+                is String -> ultimatePrefs.put(key, value)
+                is Int -> ultimatePrefs.put(key, value)
+                is Boolean -> ultimatePrefs.put(key, value)
+                is Long -> ultimatePrefs.put(key, value)
+                is Float -> ultimatePrefs.put(key, value.toDouble())
+                is Set<*> -> ultimatePrefs.put(key, JSONArray(value.mapNotNull { it?.toString() }))
+            }
+        }
+        extra.put("ultimatePrefs", ultimatePrefs)
+        val media = JSONArray()
+        listOf(File(context.filesDir, "attachments"), File(context.filesDir, "audio")).forEach { rootDir ->
+            if (rootDir.exists()) rootDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                runCatching {
+                    media.put(JSONObject()
+                        .put("relative", context.filesDir.toPath().relativize(file.toPath()).toString())
+                        .put("data", Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)))
+                }
+            }
+        }
+        extra.put("ultimateFiles", media)
         root.put("extra", extra)
         return root.toString(2)
     }
@@ -123,7 +148,38 @@ object BackupManager {
         editor.putBoolean("smart_auto_carry", data.settings.first)
         editor.putBoolean("compact_mode", data.settings.second)
         val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
-        val ex = data.extra
+        val ex = data.extra\n        val ultimatePrefs = ex.optJSONObject("ultimatePrefs")
+        if (ultimatePrefs != null) {
+            val ue = context.getSharedPreferences("yadavar_ultimate", Context.MODE_PRIVATE).edit().clear()
+            val keys = ultimatePrefs.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val value = ultimatePrefs.opt(key)
+                when (value) {
+                    is Boolean -> ue.putBoolean(key,value)
+                    is Int -> ue.putInt(key,value)
+                    is Long -> ue.putLong(key,value)
+                    is Double -> ue.putFloat(key,value.toFloat())
+                    is String -> ue.putString(key,value)
+                    is JSONArray -> ue.putStringSet(key,(0 until value.length()).map{value.optString(it)}.toSet())
+                }
+            }
+            ue.apply()
+        }
+        val media = ex.optJSONArray("ultimateFiles")
+        if (media != null) {
+            for (i in 0 until media.length()) {
+                val o = media.optJSONObject(i) ?: continue
+                val relative = o.optString("relative")
+                if (relative.contains("..")) continue
+                runCatching {
+                    val out = File(context.filesDir, relative)
+                    out.parentFile?.mkdirs()
+                    out.writeBytes(Base64.decode(o.optString("data"), Base64.DEFAULT))
+                }
+            }
+        }
+        
         ep.edit()
             .putString("inbox", ex.optJSONArray("inbox")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }.joinToString("\n") } ?: "")
             .putStringSet("archived_ids", ex.optJSONArray("archivedIds")?.let { a -> (0 until a.length()).mapNotNull { a.optInt(it, -1).takeIf { id -> id >= 0 } }.map { it.toString() }.toSet() } ?: emptySet())
