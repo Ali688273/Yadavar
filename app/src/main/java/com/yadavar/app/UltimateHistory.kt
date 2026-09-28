@@ -10,7 +10,7 @@ object UltimateHistory {
         val p=context.getSharedPreferences(PREF,0)
         val old=p.getStringSet("ids",emptySet()).orEmpty()
         val oldMap=p.all.filterKeys{it.startsWith("task_")}.mapKeys{it.key.removePrefix("task_")}.mapValues{it.value.toString()}
-        val now=tasks.associate{it.id.toString() to fingerprint(it)}
+        val now=tasks.associate{it.id.toString() to snapshot(it)}
         tasks.forEach{t->
             val id=t.id.toString()
             val fp=now[id]
@@ -29,15 +29,14 @@ object UltimateHistory {
         e.apply()
     }
 
-    private fun fingerprint(t:TodoItem):String{
-        val raw=listOf(
-            t.title,t.done.toString(),t.reminderHour?.toString().orEmpty(),
-            t.reminderMinute?.toString().orEmpty(),t.repeat,t.category,t.priority,
-            t.startDate,t.dueDate,t.note,t.tags,t.subtasks,t.location,
-            t.customEvery.toString(),t.customUnit,t.reminders.joinToString{it.label()}
-        ).joinToString("|")
-        return MessageDigest.getInstance("SHA-256")
-            .digest(raw.toByteArray(Charsets.UTF_8))
-            .joinToString(""){"%02x".format(it)}
+    private fun snapshot(t:TodoItem):String{
+        return org.json.JSONObject()
+            .put("id",t.id).put("title",t.title).put("done",t.done)
+            .put("reminderHour",t.reminderHour?:org.json.JSONObject.NULL).put("reminderMinute",t.reminderMinute?:org.json.JSONObject.NULL)
+            .put("repeat",t.repeat).put("category",t.category).put("priority",t.priority)
+            .put("startDate",t.startDate).put("dueDate",t.dueDate).put("note",t.note)
+            .put("tags",t.tags).put("subtasks",t.subtasks).put("location",t.location)
+            .put("customEvery",t.customEvery).put("customUnit",t.customUnit)
+            .put("reminders",TaskReminderCodec.encode(t.reminders)).toString()
     }
 }
