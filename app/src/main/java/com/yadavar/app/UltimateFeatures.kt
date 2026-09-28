@@ -5,7 +5,7 @@ import android.app.*
 import android.content.*
 import android.media.MediaRecorder
 import android.content.pm.PackageManager
-import android.provider.Settings
+import android.provider.Settings\nimport android.os.Build
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
