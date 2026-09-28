@@ -155,13 +155,41 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
 }
 
 @Composable private fun AudioPanel(c:Context,tasks:List<TodoItem>,update:(TodoItem)->Unit){
-    var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)};var recording by remember{mutableStateOf(false)};var rec by remember{mutableStateOf<MediaRecorder?>(null)};var text by remember{mutableStateOf("")}
-    val audioPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){ok->if(ok){startRecordingForUltimate(c,id){m,path->rec=m;recording=true;UltimateStore.addFile(c,id,path)}}}
-    val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r->text=r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty();UltimateStore.putText(c,"speech_"+id,text)}
-    fun start(){val dir=File(c.filesDir,"audio/"+id).apply{mkdirs()};val f=File(dir,System.currentTimeMillis().toString()+".m4a");val m=MediaRecorder();m.setAudioSource(MediaRecorder.AudioSource.MIC);m.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);m.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);m.setOutputFile(f.absolutePath);m.prepare();m.start();rec=m;recording=true;UltimateStore.addFile(c,id,f.absolutePath)}
-    fun stop(){runCatching{rec?.stop();rec?.release()};rec=null;recording=false}
+    var id by remember{mutableIntStateOf(tasks.firstOrNull()?.id?:-1)}
+    var recording by remember{mutableStateOf(false)}
+    var rec by remember{mutableStateOf<MediaRecorder?>(null)}
+    var currentPath by remember{mutableStateOf("")}
+    var text by remember{mutableStateOf("")}
+    var refresh by remember{mutableIntStateOf(0)}
+    fun start(){
+        val dir=File(c.filesDir,"audio/"+id).apply{mkdirs()}
+        val f=File(dir,System.currentTimeMillis().toString()+".m4a")
+        val m=MediaRecorder()
+        m.setAudioSource(MediaRecorder.AudioSource.MIC)
+        m.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+        m.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        m.setOutputFile(f.absolutePath)
+        m.prepare();m.start();rec=m;currentPath=f.absolutePath;recording=true
+    }
+    fun stop(){
+        runCatching{rec?.stop();rec?.release()}
+        if(currentPath.isNotBlank()&&File(currentPath).exists())UltimateStore.addFile(c,id,currentPath)
+        rec=null;currentPath="";recording=false;refresh++
+    }
+    val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){ok->if(ok)start()}
+    val speech=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){r->
+        val value=r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty()
+        if(value.isNotBlank()){text=value;UltimateStore.putText(c,"speech_"+id,value);tasks.firstOrNull{it.id==id}?.let{update(it.copy(note=value))}}
+    }
     DisposableEffect(Unit){onDispose{runCatching{rec?.stop();rec?.release()}}}
-    Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text("ضبط و گفتار به متن",fontSize=20.sp);TaskChoice(tasks,id){id=it;text=UltimateStore.text(c,"speech_"+it)};Button({if(recording)stop()else if(androidx.core.content.ContextCompat.checkSelfPermission(c,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)start()else audioPermission.launch(Manifest.permission.RECORD_AUDIO)}){Text(if(recording)"توقف ضبط" else "ضبط صدا")};Button({speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE,"fa-IR").putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))}){Text("گفتار به متن")};OutlinedTextField(text,{text=it;UltimateStore.putText(c,"speech_"+id,it);tasks.firstOrNull{t->t.id==id}?.let{t->update(t.copy(note=it))}},Modifier.fillMaxWidth(),minLines=3,label={Text("متن کار")})}
+    LaunchedEffect(id){text=UltimateStore.text(c,"speech_"+id)}
+    Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
+        Text("ضبط و گفتار به متن",fontSize=20.sp);TaskChoice(tasks,id){id=it}
+        Button({if(recording)stop()else if(ContextCompat.checkSelfPermission(c,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)start()else permission.launch(Manifest.permission.RECORD_AUDIO)}){Text(if(recording)"توقف ضبط"else"ضبط صدا")}
+        LazyColumn{items(UltimateStore.audio(c,id),key={it.optString("path")+refresh}){o->val path=o.optString("path");Row(Modifier.fillMaxWidth().padding(5.dp)){Text(File(path).name,Modifier.weight(1f));IconButton({playAudio(c,path)}){Icon(Icons.Default.PlayArrow,null)};IconButton({deletePath(File(path));UltimateStore.removeAudio(c,id,path);refresh++}){Icon(Icons.Default.Delete,null)}}}}
+        Button({speech.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE,"fa-IR").putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM))}){Text("گفتار به متن")}
+        OutlinedTextField(text,{text=it;UltimateStore.putText(c,"speech_"+id,it);tasks.firstOrNull{t->t.id==id}?.let{t->update(t.copy(note=it))}},Modifier.fillMaxWidth(),minLines=3,label={Text("یادداشت کار")})
+    }
 }
 
 @Composable private fun HistoryPanel(c:Context){
