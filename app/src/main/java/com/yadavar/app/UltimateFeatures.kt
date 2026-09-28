@@ -62,6 +62,12 @@ object UltimateStore {
         o.put(id.toString(),JSONObject().put("every",every).put("unit",unit).put("days",days).put("end",end))
         putObj(c,"repeat_rules",o)
     }
+    fun audio(c:Context,id:Int)=runCatching{val a=JSONArray(text(c,"audio_"+id,"[]"));(0 until a.length()).mapNotNull{a.optJSONObject(it)}}.getOrDefault(emptyList())
+    fun addAudio(c:Context,id:Int,path:String){val a=JSONArray();audio(c,id).forEach(a::put);a.put(JSONObject().put("path",path).put("time",System.currentTimeMillis()));putText(c,"audio_"+id,a.toString())}
+    fun removeAudio(c:Context,id:Int,path:String){val a=JSONArray();audio(c,id).filterNot{it.optString("path")==path}.forEach(a::put);putText(c,"audio_"+id,a.toString())}
+    fun taskCompletionDate(c:Context,id:Int)=text(c,"completed_"+id,"")
+    fun markCompleted(c:Context,id:Int,date:String=java.time.LocalDate.now().toString()){putText(c,"completed_"+id,date)}
+
 }
 
 object JalaliDate {
