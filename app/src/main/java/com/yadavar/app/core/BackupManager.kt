@@ -331,17 +331,16 @@ object BackupManager {
         }
     }
 
-    private fun loadBirthdaysFromPrefs(prefs: android.content.SharedPreferences): List<StoredBirthday> {
-        val raw = prefs.getString("birthdays", null) ?: return emptyList()
-        return raw.split("\n").mapNotNull { row ->
-            val x = row.split("\t", limit = 4)
-            if (x.size != 4) return@mapNotNull null
-            val id = x[0].toIntOrNull() ?: return@mapNotNull null
-            val month = x[2].toIntOrNull() ?: return@mapNotNull null
-            val day = x[3].toIntOrNull() ?: return@mapNotNull null
-            if (month !in 1..12 || day !in 1..31) null else StoredBirthday(id, x[1], month, day)
-        }
-    }
+    private fun loadBirthdaysFromPrefs(prefs: android.content.SharedPreferences): List<StoredBirthday> =
+        prefs.getString("birthdays", null).orEmpty().split("\n").mapNotNull { row ->
+            val x=row.split("\t",limit=6)
+            if(x.size<4)return@mapNotNull null
+            val id=x[0].toIntOrNull()?:return@mapNotNull null
+            val month=x[2].toIntOrNull()?:return@mapNotNull null
+            val day=x[3].toIntOrNull()?:return@mapNotNull null
+            if(month !in 1..12||day !in 1..31)null
+            else StoredBirthday(id,x[1],month,day,x.getOrNull(4)?.toIntOrNull()?.takeIf{it in 1900..2200},x.getOrNull(5).orEmpty().ifBlank{"1,0"})
+        )
 
     private fun loadHabits(prefs: android.content.SharedPreferences): Map<String, Int> =
         prefs.getString("habits", "").orEmpty().split("\n").mapNotNull {
