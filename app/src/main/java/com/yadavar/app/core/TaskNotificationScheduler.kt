@@ -52,85 +52,61 @@ object TaskNotificationScheduler {
     }
 
     private fun nextTrigger(context: Context, task: com.yadavar.app.TodoItem, hour: Int, minute: Int): Long? {
-        if (hour !in 0..23 || minute !in 0..59) return null
-        val now = Calendar.getInstance()
-        val next = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+        if(hour !in 0..23 || minute !in 0..59) return null
+        val now=Calendar.getInstance()
+        val next=Calendar.getInstance()
+        val base=runCatching{LocalDate.parse(task.dueDate)}.getOrNull()
+        if(base!=null){
+            next.set(Calendar.YEAR,base.year);next.set(Calendar.MONTH,base.monthValue-1);next.set(Calendar.DAY_OF_MONTH,base.dayOfMonth)
         }
-
-        val advanced = runCatching {
-            val root = context.getSharedPreferences("yadavar_ultimate", Context.MODE_PRIVATE)
-                .getString("repeat_rules", "{}") ?: "{}"
-            JSONObject(root).optJSONObject(task.id.toString())
+        next.set(Calendar.HOUR_OF_DAY,hour);next.set(Calendar.MINUTE,minute);next.set(Calendar.SECOND,0);next.set(Calendar.MILLISECOND,0)
+        val advanced=runCatching{
+            val raw=context.getSharedPreferences("yadavar_ultimate",Context.MODE_PRIVATE).getString("repeat_rules","{}")?:"{}"
+            JSONObject(raw).optJSONObject(task.id.toString())
         }.getOrNull()
-        if (advanced != null) {
-            val every = advanced.optInt("every", task.customEvery).coerceAtLeast(1)
-            val unit = advanced.optString("unit", task.customUnit).lowercase()
-            val end = advanced.optString("end", "").takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            val allowed = advanced.optString("days", "").split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
-            var guard = 0
-            while (next.timeInMillis <= now.timeInMillis && guard++ < 10000) {
-                when (unit) {
-                    "week", "هفته", "هفتگی" -> next.add(Calendar.WEEK_OF_YEAR, every)
-                    "month", "ماه", "ماهانه" -> next.add(Calendar.MONTH, every)
-                    "year", "سال", "سالانه" -> next.add(Calendar.YEAR, every)
-                    else -> next.add(Calendar.DAY_OF_YEAR, every)
+        if(advanced!=null){
+            val every=advanced.optInt("every",task.customEvery).coerceAtLeast(1)
+            val unit=advanced.optString("unit",task.customUnit).lowercase()
+            val allowed=advanced.optString("days","").split(",").map{it.trim().lowercase()}.filter{it.isNotBlank()}.toSet()
+            val end=advanced.optString("end","").takeIf{it.isNotBlank()}?.let{runCatching{LocalDate.parse(it)}.getOrNull()}
+            fun dayName(cal:Calendar)=when(cal.get(Calendar.DAY_OF_WEEK)){
+                Calendar.SATURDAY->"شنبه";Calendar.SUNDAY->"یکشنبه";Calendar.MONDAY->"دوشنبه";Calendar.TUESDAY->"سه‌شنبه";Calendar.WEDNESDAY->"چهارشنبه";Calendar.THURSDAY->"پنجشنبه";else->"جمعه"
+            }
+            var guard=0
+            while(next.timeInMillis<=now.timeInMillis&&guard++<10000){
+                when(unit){
+                    "week","هفته","هفتگی"->next.add(Calendar.WEEK_OF_YEAR,every)
+                    "month","ماه","ماهانه"->next.add(Calendar.MONTH,every)
+                    "year","سال","سالانه"->next.add(Calendar.YEAR,every)
+                    else->next.add(Calendar.DAY_OF_YEAR,every)
                 }
             }
-            if (allowed.isNotEmpty()) {
-                fun dayName(cal: Calendar): String = when(cal.get(Calendar.DAY_OF_WEEK)) {
-                    Calendar.SATURDAY -> "شنبه"; Calendar.SUNDAY -> "یکشنبه"; Calendar.MONDAY -> "دوشنبه"
-                    Calendar.TUESDAY -> "سه‌شنبه"; Calendar.WEDNESDAY -> "چهارشنبه"; Calendar.THURSDAY -> "پنجشنبه"; else -> "جمعه"
-                }
-                guard = 0
-                while (dayName(next).lowercase() !in allowed && guard++ < 14) next.add(Calendar.DAY_OF_YEAR,1)
+            if(allowed.isNotEmpty()){
+                guard=0
+                while(dayName(next).lowercase() !in allowed&&guard++<370)next.add(Calendar.DAY_OF_YEAR,1)
             }
-            if (end != null && LocalDate.of(next.get(Calendar.YEAR), next.get(Calendar.MONTH)+1, next.get(Calendar.DAY_OF_MONTH)).isAfter(end)) return null
+            if(end!=null&&LocalDate.of(next.get(Calendar.YEAR),next.get(Calendar.MONTH)+1,next.get(Calendar.DAY_OF_MONTH)).isAfter(end))return null
             return next.timeInMillis
         }
-
-        when (task.repeat) {
-            "weekly" -> while (next.timeInMillis <= now.timeInMillis) next.add(Calendar.WEEK_OF_YEAR, 1)
-            "monthly" -> while (next.timeInMillis <= now.timeInMillis) next.add(Calendar.MONTH, 1)
-            "yearly" -> {
-                val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() ?: return null
-                next.set(Calendar.MONTH, base.monthValue - 1)
-                next.set(Calendar.DAY_OF_MONTH, base.dayOfMonth)
-                while (next.timeInMillis <= now.timeInMillis) next.add(Calendar.YEAR, 1)
-            }
-            "custom" -> {
-                val base = runCatching { LocalDate.parse(task.dueDate, DateTimeFormatter.ISO_LOCAL_DATE) }.getOrNull() ?: return null
-                next.set(Calendar.YEAR, base.year)
-                next.set(Calendar.MONTH, base.monthValue - 1)
-                next.set(Calendar.DAY_OF_MONTH, base.dayOfMonth)
-                val every = task.customEvery.coerceAtLeast(1)
-                while (next.timeInMillis <= now.timeInMillis) {
-                    when (task.customUnit.lowercase()) {
-                        "week", "هفته", "هفتگی" -> next.add(Calendar.WEEK_OF_YEAR, every)
-                        "month", "ماه", "ماهانه" -> next.add(Calendar.MONTH, every)
-                        else -> next.add(Calendar.DAY_OF_YEAR, every)
+        when(task.repeat){
+            "daily"->while(next.timeInMillis<=now.timeInMillis)next.add(Calendar.DAY_OF_YEAR,1)
+            "weekly"->while(next.timeInMillis<=now.timeInMillis)next.add(Calendar.WEEK_OF_YEAR,1)
+            "monthly"->while(next.timeInMillis<=now.timeInMillis)next.add(Calendar.MONTH,1)
+            "yearly"->while(next.timeInMillis<=now.timeInMillis)next.add(Calendar.YEAR,1)
+            "weekdays"->while(next.timeInMillis<=now.timeInMillis||next.get(Calendar.DAY_OF_WEEK)==Calendar.FRIDAY||next.get(Calendar.DAY_OF_WEEK)==Calendar.SATURDAY)next.add(Calendar.DAY_OF_YEAR,1)
+            "weekends"->while(next.timeInMillis<=now.timeInMillis|| (next.get(Calendar.DAY_OF_WEEK)!=Calendar.FRIDAY&&next.get(Calendar.DAY_OF_WEEK)!=Calendar.SATURDAY))next.add(Calendar.DAY_OF_YEAR,1)
+            "custom"->{
+                val every=task.customEvery.coerceAtLeast(1)
+                while(next.timeInMillis<=now.timeInMillis){
+                    when(task.customUnit.lowercase()){
+                        "week","هفته","هفتگی"->next.add(Calendar.WEEK_OF_YEAR,every)
+                        "month","ماه","ماهانه"->next.add(Calendar.MONTH,every)
+                        "year","سال","سالانه"->next.add(Calendar.YEAR,every)
+                        else->next.add(Calendar.DAY_OF_YEAR,every)
                     }
                 }
             }
-            "daily" -> if (next.timeInMillis <= now.timeInMillis) next.add(Calendar.DAY_OF_YEAR, 1)
-            "weekdays" -> {
-                while (next.timeInMillis <= now.timeInMillis ||
-                    next.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY ||
-                    next.get(Calendar.DAY_OF_WEEK) == Calendar.FRIDAY) {
-                    next.add(Calendar.DAY_OF_YEAR, 1)
-                }
-            }
-            "weekends" -> {
-                while (next.timeInMillis <= now.timeInMillis ||
-                    (next.get(Calendar.DAY_OF_WEEK) != Calendar.SATURDAY &&
-                     next.get(Calendar.DAY_OF_WEEK) != Calendar.FRIDAY)) {
-                    next.add(Calendar.DAY_OF_YEAR, 1)
-                }
-            }
-            else -> if (next.timeInMillis <= now.timeInMillis) return null
+            else->if(next.timeInMillis<=now.timeInMillis)return null
         }
         return next.timeInMillis
     }
