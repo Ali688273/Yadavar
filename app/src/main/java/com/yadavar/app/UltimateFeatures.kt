@@ -332,3 +332,5 @@ private fun shareAttachment(c:Context,path:String){
         c.startActivity(Intent.createChooser(i,"اشتراک‌گذاری فایل"))
     }
 }
+
+private fun deletePath(f:File){runCatching{if(f.exists())f.delete()}}\n
