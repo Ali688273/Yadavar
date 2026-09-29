@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-private object YadavarProgressStore {
+object YadavarProgressStore {
     private fun p(c: Context) = c.getSharedPreferences("yadavar_progress", Context.MODE_PRIVATE)
     fun completionDates(c: Context): Set<String> = p(c).getStringSet("completion_dates", emptySet())?.toSet() ?: emptySet()
     fun recordCompletion(c: Context, date: LocalDate = LocalDate.now()) { p(c).edit().putStringSet("completion_dates", completionDates(c) + date.toString()).apply() }
