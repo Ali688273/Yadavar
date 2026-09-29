@@ -213,9 +213,11 @@ object BackupManager {
             for (i in 0 until media.length()) {
                 val o = media.optJSONObject(i) ?: continue
                 val relative = o.optString("relative")
-                if (relative.contains("..")) continue
                 runCatching {
-                    val out = File(context.filesDir, relative)
+                    val base = context.filesDir.canonicalFile
+                    val out = File(base, relative).canonicalFile
+                    val basePath = base.path + File.separator
+                    if (!out.path.startsWith(basePath)) return@runCatching
                     out.parentFile?.mkdirs()
                     out.writeBytes(Base64.decode(o.optString("data"), Base64.DEFAULT))
                 }
