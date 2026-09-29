@@ -52,7 +52,7 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
-                .setContentText(text)
+                .setContentText(if (context.getSharedPreferences("yadavar_progress", 0).getBoolean("private_notifications", false)) "یک یادآوری تولد دارید." else text)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setContentIntent(open)
