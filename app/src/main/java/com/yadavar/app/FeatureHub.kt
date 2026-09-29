@@ -236,9 +236,9 @@ private fun parseQuickTask(input: String): TodoItem? {
         text.contains("پس‌فردا") || text.contains("پس فردا") -> { date = today.plusDays(2).toString(); text = text.replace("پس‌فردا","").replace("پس فردا","") }
         text.contains("فردا") -> { date = today.plusDays(1).toString(); text = text.replace("فردا","") }
         text.contains("امروز") -> { date = today.toString(); text = text.replace("امروز","") }
-        else -> Regex("""\\b(20\\d{2}-\\d{2}-\\d{2})\\b""").find(text)?.let { date = it.value; text = text.replace(it.value, "") }
+        else -> Regex("""\b(20\d{2}-\d{2}-\d{2})\b""").find(text)?.let { date = it.value; text = text.replace(it.value, "") }
     }
-    val timeMatch = Regex("""(?:ساعت|at)\\s*(\\d{1,2})(?::|[٫.]?)(\\d{2})?""").find(text)
+    val timeMatch = Regex("""(?:ساعت|at)\s*(\d{1,2})(?::|[٫.]?)(\d{2})?""").find(text)
     var hour: Int? = null
     var minute: Int? = null
     if (timeMatch != null) {
@@ -246,7 +246,7 @@ private fun parseQuickTask(input: String): TodoItem? {
         minute = (timeMatch.groupValues[2].ifBlank { "0" }).toIntOrNull()?.coerceIn(0,59)
         text = text.replace(timeMatch.value, "")
     }
-    text = text.replace(Regex("""\\s+"""), " ").trim(' ', '-', '،', ',')
+    text = text.replace(Regex("""\s+"""), " ").trim(' ', '-', '،', ',')
     if (text.isBlank()) return null
     return TodoItem(id = 0, title = text, reminderHour = hour, reminderMinute = minute, dueDate = date)
 }
