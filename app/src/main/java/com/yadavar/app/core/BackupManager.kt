@@ -3,7 +3,9 @@ package com.yadavar.app.core
 import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
-import org.json.JSONObject\nimport android.util.Base64\nimport java.io.File
+import org.json.JSONObject
+import android.util.Base64
+import java.io.File
 import com.yadavar.app.TodoItem
 
 object BackupManager {
@@ -148,7 +150,8 @@ object BackupManager {
         editor.putBoolean("smart_auto_carry", data.settings.first)
         editor.putBoolean("compact_mode", data.settings.second)
         val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
-        val ex = data.extra\n        val ultimatePrefs = ex.optJSONObject("ultimatePrefs")
+        val ex = data.extra
+        val ultimatePrefs = ex.optJSONObject("ultimatePrefs")
         if (ultimatePrefs != null) {
             val ue = context.getSharedPreferences("yadavar_ultimate", Context.MODE_PRIVATE).edit().clear()
             val keys = ultimatePrefs.keys()
