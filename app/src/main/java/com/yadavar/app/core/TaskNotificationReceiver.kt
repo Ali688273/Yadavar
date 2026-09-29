@@ -75,7 +75,7 @@ class TaskNotificationReceiver : BroadcastReceiver() {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(if (snoozed) "یادآوری دوباره" else "یادآوری کار")
-            .setContentText(title)
+            .setContentText(if (context.getSharedPreferences("yadavar_progress", 0).getBoolean("private_notifications", false)) "یادآوری جدید دارید." else title)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(open)
