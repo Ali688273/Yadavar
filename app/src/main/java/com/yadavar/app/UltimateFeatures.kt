@@ -48,7 +48,7 @@ object UltimateStore {
     fun addFile(c:Context,id:Int,path:String){val a=JSONArray();(attachments(c,id)+path).distinct().forEach{a.put(it)};putText(c,"files_"+id,a.toString())}
     fun removeFile(c:Context,id:Int,path:String){val a=JSONArray();attachments(c,id).filterNot{it==path}.forEach{a.put(it)};putText(c,"files_"+id,a.toString())}
     fun history(c:Context)=runCatching{val a=JSONArray(text(c,"history","[]"));(0 until a.length()).map{a.optString(it)}.reversed()}.getOrDefault(emptyList())
-    fun history(c:Context,t:TodoItem,action:String){val a=JSONArray(text(c,"history","[]"));a.put(JSONObject().put("time",System.currentTimeMillis()).put("id",t.id).put("task",t.title).put("action",action).toString());while(a.length()>300)a.remove(0);putText(c,"history",a.toString())}
+    fun history(c:Context,t:TodoItem,action:String,before:String?=null,after:String?=null){val a=JSONArray(text(c,"history","[]"));val item=JSONObject().put("time",System.currentTimeMillis()).put("id",t.id).put("task",t.title).put("action",action);if(before!=null)item.put("before",before);if(after!=null)item.put("after",after);a.put(item.toString());while(a.length()>300)a.remove(0);putText(c,"history",a.toString())}
     fun subtasks(c:Context,id:Int)=runCatching{JSONArray(text(c,"sub_"+id,"[]"))}.getOrDefault(JSONArray())
     fun setSubtasks(c:Context,id:Int,a:JSONArray)=putText(c,"sub_"+id,a.toString())
     fun tags(c:Context)=obj(c,"tags")
