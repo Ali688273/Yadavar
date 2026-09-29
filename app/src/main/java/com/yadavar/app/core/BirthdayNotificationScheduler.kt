@@ -53,7 +53,7 @@ object BirthdayNotificationScheduler {
             val alarmTime = (birthday.clone() as Calendar).apply {
                 add(Calendar.DAY_OF_YEAR, -daysBefore)
             }
-            setAlarm(context, alarm, id, name, month, day, daysBefore, alarmTime.timeInMillis, BASE + id * MAX_REMINDERS + index)
+            setAlarm(context, alarm, id, name, month, day, daysBefore, reminderOffsets, alarmTime.timeInMillis, BASE + id * MAX_REMINDERS + index)
         }
         cancelLegacyAlarms(context, alarm, month, day)
     }
@@ -64,7 +64,7 @@ object BirthdayNotificationScheduler {
         cancelLegacyAlarms(context, alarm, month, day)
     }
 
-    private fun setAlarm(context: Context, alarm: AlarmManager, id: Int, name: String, month: Int, day: Int, daysBefore: Int, time: Long, code: Int) {
+    private fun setAlarm(context: Context, alarm: AlarmManager, id: Int, name: String, month: Int, day: Int, daysBefore: Int, reminderOffsets: String, time: Long, code: Int) {
         val intent = Intent(context, BirthdayNotificationReceiver::class.java).apply {
             putExtra(BirthdayNotificationReceiver.EXTRA_ID, id)
             putExtra(BirthdayNotificationReceiver.EXTRA_NAME, name)
