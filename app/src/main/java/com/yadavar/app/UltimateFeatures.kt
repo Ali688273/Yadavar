@@ -213,7 +213,7 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
     }
     fun stop(){
         runCatching{rec?.stop();rec?.release()}
-        if(currentPath.isNotBlank()&&File(currentPath).exists())UltimateStore.addFile(c,id,currentPath)
+        if(currentPath.isNotBlank()&&File(currentPath).exists())UltimateStore.addAudio(c,id,currentPath)
         rec=null;currentPath="";recording=false;refresh++
     }
     val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){ok->if(ok)start()}
