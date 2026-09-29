@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
                 ShortcutInfo.Builder(this, "birthdays").setShortLabel("تولدها").setLongLabel("باز کردن تولدها").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_my_calendar)).setIntent(android.content.Intent(this, MainActivity::class.java).putExtra("open_birthdays", true)).build()
             )
         }
-        setContent { YadavarApp(this) }
+        setContent { YadavarAppTheme(this) { YadavarApp(this) } }
     }
 }
 
@@ -182,7 +182,7 @@ fun YadavarApp(context: Context) {
         topBar = {
             TopAppBar(title = {
                 Text(
-                    if (tab == 0) "یادآور" else if (tab == 1) "تولدها 🎂" else if (tab == 2) "حرفه‌ای" else "تنظیمات",
+                    if (tab == 0) "یادآور" else if (tab == 1) "تولدها 🎂" else if (tab == 2) "حرفه‌ای" else if (tab == 3) "مرکز موفقیت" else "تنظیمات",
                     fontWeight = FontWeight.Bold
                 )
             })
@@ -192,7 +192,8 @@ fun YadavarApp(context: Context) {
                 NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.Checklist, "کارها") }, label = { Text("کارها") })
                 NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.Cake, "تولدها") }, label = { Text("تولدها") })
                 NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.AutoAwesome, "حرفه‌ای") }, label = { Text("حرفه‌ای") })
-                NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.Settings, "تنظیمات") }, label = { Text("تنظیمات") })
+                NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.EmojiEvents, "مرکز موفقیت") }, label = { Text("مرکز") })
+                NavigationBarItem(selected = tab == 4, onClick = { tab = 4 }, icon = { Icon(Icons.Default.Settings, "تنظیمات") }, label = { Text("تنظیمات") })
             }
         },
         floatingActionButton = {
@@ -214,6 +215,7 @@ fun YadavarApp(context: Context) {
                     if (i >= 0) {
                         ExtraFeaturesStore.saveUndo(context, tasks[i])
                         tasks[i] = tasks[i].copy(done = !tasks[i].done)
+                        if (tasks[i].done) YadavarProgressStore.recordCompletion(context)
                         saveT()
                     }
                 },
@@ -239,6 +241,14 @@ fun YadavarApp(context: Context) {
                 tasks.removeAll { it.id == id }
                 saveT()
             }, modifier = Modifier.padding(pad))
+            3 -> FeatureHubScreen(context = context, tasks = tasks, onAddTask = { item ->
+                val newId = (tasks.maxOfOrNull { it.id } ?: 0) + 1
+                tasks.add(item.copy(id = newId))
+                saveT()
+            }, onUpdateTask = { item ->
+                val index = tasks.indexOfFirst { it.id == item.id }
+                if (index >= 0) { tasks[index] = item; saveT() }
+            })
             else -> SettingsScreen(
                 context = context,
                 total = tasks.size,
