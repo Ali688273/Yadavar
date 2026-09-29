@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yadavar.app.core.BackupManager
 import com.yadavar.app.core.BirthdayNotificationScheduler
+import com.yadavar.app.core.GeofenceManager
 import com.yadavar.app.core.BirthdayReminderEngine
 import com.yadavar.app.core.StoredBirthday
 import com.yadavar.app.core.TaskNotificationScheduler
@@ -231,7 +232,13 @@ fun YadavarApp(context: Context) {
                 },
                 modifier = Modifier.padding(pad)
             )
-            2 -> ProfessionalScreen(context = context, tasks = tasks, onAdd = { tasks.add(it); saveT() }, onUpdate = { item -> val i = tasks.indexOfFirst { it.id == item.id }; if (i >= 0) { tasks[i] = item; saveT() } }, onDelete = { id -> tasks.removeAll { it.id == id }; saveT() }, modifier = Modifier.padding(pad))
+            2 -> ProfessionalScreen(context = context, tasks = tasks, onAdd = { tasks.add(it); saveT() }, onUpdate = { item -> val i = tasks.indexOfFirst { it.id == item.id }; if (i >= 0) { tasks[i] = item; saveT() } }, onDelete = { id ->
+                TaskNotificationScheduler.cancelTask(context, id)
+                GeofenceManager.remove(context, id)
+                UltimateStore.removeAllTaskState(context, id)
+                tasks.removeAll { it.id == id }
+                saveT()
+            }, modifier = Modifier.padding(pad))
             else -> SettingsScreen(
                 context = context,
                 total = tasks.size,
@@ -272,6 +279,8 @@ fun YadavarApp(context: Context) {
                     TaskNotificationScheduler.cancelTask(context, task.id)
                     ExtraFeaturesStore.saveUndo(context, task)
                     ExtraFeaturesStore.setArchived(context, task.id, false)
+                    GeofenceManager.remove(context, task.id)
+                    UltimateStore.removeAllTaskState(context, task.id)
                     tasks.removeAll { it.id == task.id }
                     saveT()
                     taskToDelete = null
@@ -312,7 +321,12 @@ fun YadavarApp(context: Context) {
             confirmButton = {
                 Button(onClick = {
                     tasks.filter { it.done }.lastOrNull()?.let { ExtraFeaturesStore.saveUndo(context, it) }
-                    tasks.filter { it.done }.forEach { ExtraFeaturesStore.setArchived(context, it.id, false) }
+                    tasks.filter { it.done }.forEach {
+                        TaskNotificationScheduler.cancelTask(context, it.id)
+                        GeofenceManager.remove(context, it.id)
+                        UltimateStore.removeAllTaskState(context, it.id)
+                        ExtraFeaturesStore.setArchived(context, it.id, false)
+                    }
                     tasks.removeAll { it.done }
                     saveT()
                     showDeleteCompleted = false
@@ -395,7 +409,9 @@ fun YadavarApp(context: Context) {
                     birthdays[index] = birthday.copy(
                         name = name.trim(),
                         month = month,
-                        day = day
+                        day = day,
+                        year = year,
+                        reminderOffsets = offsets
                     )
                     saveB()
                 }
