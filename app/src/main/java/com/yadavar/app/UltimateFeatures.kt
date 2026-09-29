@@ -5,7 +5,8 @@ import android.app.*
 import android.content.*
 import android.media.MediaRecorder
 import android.content.pm.PackageManager
-import android.provider.Settings\nimport android.os.Build
+import android.provider.Settings
+import android.os.Build
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -149,7 +150,8 @@ fun UltimateFeaturesScreen(context:Context,tasks:List<TodoItem>,onUpdate:(TodoIt
         OutlinedTextField(lat,{lat=it},Modifier.fillMaxWidth(),label={Text("Latitude")});OutlinedTextField(lon,{lon=it},Modifier.fillMaxWidth(),label={Text("Longitude")});OutlinedTextField(radius,{radius=it.filter(Char::isDigit)},Modifier.fillMaxWidth(),label={Text("شعاع متر")})
         Button({permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))}){Text("اجازه مکان")}
         Button({val t=tasks.firstOrNull{it.id==id};val a=lat.toDoubleOrNull();val o=lon.toDoubleOrNull();val r=radius.toFloatOrNull();if(t!=null&&a!=null&&o!=null&&r!=null)GeofenceManager.add(c,GeofenceManager.Item(t.id,t.title,a,o,r))}){Text("فعال‌سازی Geofence")}
-        Text("تعداد فعال: "+GeofenceManager.load(c).size)\n        if(Build.VERSION.SDK_INT>=29)Text("برای اجرای Geofence در پس‌زمینه، در تنظیمات برنامه اجازه «همیشه» را فعال کنید.")
+        Text("تعداد فعال: "+GeofenceManager.load(c).size)
+        if(Build.VERSION.SDK_INT>=29)Text("برای اجرای Geofence در پس‌زمینه، در تنظیمات برنامه اجازه «همیشه» را فعال کنید.")
     }
 }
 
