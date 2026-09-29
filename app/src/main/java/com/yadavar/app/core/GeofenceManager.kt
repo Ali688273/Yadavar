@@ -70,6 +70,15 @@ object GeofenceManager {
         }
     }
 
+    fun replaceAll(context: Context, items: List<Item>) {
+        val a = JSONArray()
+        items.distinctBy { it.taskId }.take(100).forEach { item ->
+            a.put(JSONObject().put("taskId", item.taskId).put("title", item.title).put("lat", item.latitude).put("lon", item.longitude).put("radius", item.radius))
+        }
+        context.getSharedPreferences(PREFS, 0).edit().putString(KEY, a.toString()).apply()
+        registerAll(context)
+    }
+
     fun add(context: Context, item: Item) {
         save(context,item)
         registerAll(context)
