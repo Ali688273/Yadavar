@@ -69,6 +69,18 @@ object UltimateStore {
     fun removeAudio(c:Context,id:Int,path:String){val a=JSONArray();audio(c,id).filterNot{it.optString("path")==path}.forEach(a::put);putText(c,"audio_"+id,a.toString())}
     fun taskCompletionDate(c:Context,id:Int)=text(c,"completed_"+id,"")
     fun markCompleted(c:Context,id:Int,date:String=java.time.LocalDate.now().toString()){putText(c,"completed_"+id,date)}
+    fun removeAllTaskState(c:Context,id:Int){
+        val e=p(c).edit()
+            .remove("files_"+id)
+            .remove("audio_"+id)
+            .remove("sub_"+id)
+            .remove("completed_"+id)
+        val repeat=obj(c,"repeat_rules"); repeat.remove(id.toString()); e.putString("repeat_rules",repeat.toString())
+        val order=taskOrder(c).filterNot{it==id}; e.putString("task_order",order.joinToString(","))
+        val awarded=p(c).getStringSet("awarded",emptySet())?.toMutableSet() ?: mutableSetOf(); awarded.remove(id.toString()); e.putStringSet("awarded",awarded)
+        e.apply()
+        listOf(File(c.filesDir,"attachments/$id"),File(c.filesDir,"audio/$id")).forEach{dir->if(dir.exists())dir.deleteRecursively()}
+    }
 
 }
 
