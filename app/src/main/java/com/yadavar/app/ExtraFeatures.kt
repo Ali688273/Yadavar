@@ -27,8 +27,8 @@ private val EXTRA_DATE = DateTimeFormatter.ISO_LOCAL_DATE
 object ExtraFeaturesStore {
     private const val PREF = "yadavar_extra"
     private fun p(c: Context) = c.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-    fun archived(c: Context): Set<Int> = p(c).getStringSet("archived_ids", emptySet()) ?: emptySet()
-    fun setArchived(c: Context, id: Int, value: Boolean) { val s=archived(c).toMutableSet(); if(value)s.add(id) else s.remove(id); p(c).edit().putStringSet("archived_ids",s).apply() }
+    fun archived(c: Context): Set<Int> = (p(c).getStringSet("archived_ids", emptySet()) ?: emptySet()).mapNotNull { it.toIntOrNull() }.toSet()
+    fun setArchived(c: Context, id: Int, value: Boolean) { val s=archived(c).toMutableSet(); if(value)s.add(id) else s.remove(id); p(c).edit().putStringSet("archived_ids",s.map { it.toString() }.toSet()).apply() }
     fun undo(c: Context): TodoItem? {
         val raw = p(c).getString("undo_task", null) ?: return null
         return runCatching {
