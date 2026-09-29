@@ -11,7 +11,7 @@ import com.yadavar.app.core.GeofenceManager
 
 object BackupManager {
 
-    private const val BACKUP_VERSION = 3
+    private const val BACKUP_VERSION = 4
 
     data class BackupData(
         val tasks: List<TodoItem>,
