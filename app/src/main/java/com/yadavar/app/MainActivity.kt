@@ -986,9 +986,7 @@ fun SettingsScreen(
 fun loadTasks(context: Context): List<TodoItem> {
     val prefs = context.getSharedPreferences("yadavar_data", 0)
     val raw = prefs.getString("tasks", null) ?: return emptyList()
-    val savedDate = prefs.getString("tasks_date", null)
     val today = currentTaskDate()
-    val shouldReset = savedDate == null || savedDate != today
 
     val list = raw.split("\n").mapNotNull { p ->
         val x = p.split("\t", limit = 17)
@@ -1007,7 +1005,7 @@ fun loadTasks(context: Context): List<TodoItem> {
                 TodoItem(
                     id = id,
                     title = x[2],
-                    done = if (shouldReset) false else x[1] == "1",
+                    done = x[1] == "1",
                     reminderHour = hour?.takeIf { it in 0..23 },
                     reminderMinute = minute?.takeIf { it in 0..59 },
                     repeat = repeat,
