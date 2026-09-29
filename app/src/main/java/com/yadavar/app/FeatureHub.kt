@@ -78,7 +78,7 @@ fun FeatureHubScreen(context: Context, tasks: List<TodoItem>, onAddTask: (TodoIt
                     StatBox("عقب", overdue.toString(), Modifier.weight(1f))
                 }
                 Text("نرخ تکمیل: " + rate + "٪ • امروز انجام‌شده: " + todayDone)
-                LinearProgressIndicator(progress = { rate / 100f }, Modifier.fillMaxWidth())
+                LinearProgressIndicator(progress = { rate / 100f }, modifier = Modifier.fillMaxWidth())
             }
         }
         item {
