@@ -7,6 +7,7 @@ import org.json.JSONObject
 import android.util.Base64
 import java.io.File
 import com.yadavar.app.TodoItem
+import com.yadavar.app.core.GeofenceManager
 
 object BackupManager {
 
@@ -108,6 +109,16 @@ object BackupManager {
             }
         }
         extra.put("ultimateFiles", media)
+        val geofences = JSONArray()
+        GeofenceManager.load(context).forEach { item ->
+            geofences.put(JSONObject()
+                .put("taskId", item.taskId)
+                .put("title", item.title)
+                .put("lat", item.latitude)
+                .put("lon", item.longitude)
+                .put("radius", item.radius))
+        }
+        extra.put("geofences", geofences)
         root.put("extra", extra)
         return root.toString(2)
     }
@@ -168,6 +179,20 @@ object BackupManager {
                 }
             }
             ue.apply()
+        }
+        val geofences = ex.optJSONArray("geofences")
+        if (geofences != null) {
+            val restored = buildList {
+                for (i in 0 until geofences.length()) {
+                    val o = geofences.optJSONObject(i) ?: continue
+                    val taskId = o.optInt("taskId", -1)
+                    val lat = o.optDouble("lat", Double.NaN)
+                    val lon = o.optDouble("lon", Double.NaN)
+                    val radius = o.optDouble("radius", 150.0).toFloat()
+                    if (taskId >= 0 && lat.isFinite() && lon.isFinite() && radius > 0f) add(GeofenceManager.Item(taskId, o.optString("title"), lat, lon, radius))
+                }
+            }
+            GeofenceManager.replaceAll(context, restored)
         }
         val media = ex.optJSONArray("ultimateFiles")
         if (media != null) {
