@@ -1,17 +1,10 @@
 name: Yadavar Stage 8
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   build:
@@ -35,8 +28,3 @@ jobs:
         with:
           name: yadavar-stage8-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-      - name: Disable after successful build
-        if: success() && github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow disable "Yadavar Stage 8" --repo "${{ github.repository }}"
