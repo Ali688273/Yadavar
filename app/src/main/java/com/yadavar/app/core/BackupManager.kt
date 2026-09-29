@@ -119,6 +119,11 @@ object BackupManager {
                 .put("radius", item.radius))
         }
         extra.put("geofences", geofences)
+        val progress = context.getSharedPreferences("yadavar_progress", Context.MODE_PRIVATE)
+        extra.put("progressCompletionDates", JSONArray(progress.getStringSet("completion_dates", emptySet()) ?: emptySet<String>()))
+        extra.put("progressFocusMinutes", progress.getInt("focus_minutes", 0))
+        extra.put("progressTheme", progress.getString("theme", "system") ?: "system")
+        extra.put("progressPrivateNotifications", progress.getBoolean("private_notifications", false))
         root.put("extra", extra)
         return root.toString(2)
     }
@@ -194,6 +199,15 @@ object BackupManager {
             }
             GeofenceManager.replaceAll(context, restored)
         }
+        val progress = context.getSharedPreferences("yadavar_progress", Context.MODE_PRIVATE)
+        val progressDates = ex.optJSONArray("progressCompletionDates")
+        val progressEditor = progress.edit()
+        if (progressDates != null) {
+            progressEditor.putStringSet("completion_dates", (0 until progressDates.length()).map { progressDates.optString(it) }.filter { it.isNotBlank() }.toSet())
+        }
+        progressEditor.putInt("focus_minutes", ex.optInt("progressFocusMinutes", 0).coerceAtLeast(0))
+        progressEditor.putString("theme", ex.optString("progressTheme", "system"))
+        progressEditor.putBoolean("private_notifications", ex.optBoolean("progressPrivateNotifications", false)).apply()
         val media = ex.optJSONArray("ultimateFiles")
         if (media != null) {
             for (i in 0 until media.length()) {
