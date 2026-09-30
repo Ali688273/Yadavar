@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import com.yadavar.app.ads.YadavarNativeAd
+import com.yadavar.app.ads.YadavarAds
 
 object YadavarProgressStore {
     private fun p(c: Context) = c.getSharedPreferences("yadavar_progress", Context.MODE_PRIVATE)
@@ -112,6 +113,21 @@ fun FeatureHubScreen(context: Context, tasks: List<TodoItem>, onAddTask: (TodoIt
                     }
                 }
                 Text("تمرکز ثبت‌شده: " + focusTotal + " دقیقه")
+            }
+        }
+        item {
+            HubCard("🎁 پاداش اختیاری", "ویدئوی جایزه‌ای فقط با درخواست خودت") {
+                Text("با تماشای کامل تبلیغ جایزه‌ای، ۱۰ دقیقه به زمان تمرکز ثبت‌شده اضافه می‌شود.")
+                Button(
+                    onClick = {
+                        (context as? android.app.Activity)?.let { activity ->
+                            YadavarAds.showRewarded(activity) {
+                                YadavarProgressStore.addFocus(context, 10)
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("مشاهده و دریافت پاداش") }
             }
         }
         item {
