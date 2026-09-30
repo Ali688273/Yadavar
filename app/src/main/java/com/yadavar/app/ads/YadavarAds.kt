@@ -170,6 +170,33 @@ object YadavarAds {
         Adivery.addPlacementListener(ADIVERY_REWARDED, listener)
     }
 
+    private var lastAppOpenAt = 0L
+
+    fun maybeShowAppOpen(activity: Activity, backgroundDurationMs: Long) {
+        if (backgroundDurationMs < 60_000L) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastAppOpenAt < 2 * 60 * 60 * 1000L) return
+        lastAppOpenAt = now
+        if (Adivery.isLoaded(ADIVERY_APP_OPEN)) {
+            Adivery.showAppOpenAd(activity, ADIVERY_APP_OPEN)
+        } else {
+            val listener = object : AdiveryListener() {
+                override fun onAppOpenAdLoaded(placementId: String) {
+                    Adivery.showAppOpenAd(activity, placementId)
+                    Adivery.removePlacementListener(ADIVERY_APP_OPEN)
+                }
+                override fun onAppOpenAdShown(placementId: String) = Unit
+                override fun onAppOpenAdClicked(placementId: String) = Unit
+                override fun onAppOpenAdClosed(placementId: String) {
+                    Adivery.removePlacementListener(ADIVERY_APP_OPEN)
+                }
+                override fun log(placementId: String, message: String) = Unit
+            }
+            Adivery.addPlacementListener(ADIVERY_APP_OPEN, listener)
+            Adivery.prepareAppOpenAd(activity, ADIVERY_APP_OPEN)
+        }
+    }
+
     fun loadTapsellBanner(context: Context, container: FrameLayout, onError: () -> Unit) {
         val activity = context as? Activity ?: run { onError(); return }
         if (!tapsellReady) {
