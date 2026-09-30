@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.adivery.sdk.Adivery
 import com.adivery.sdk.AdiveryAdListener
+import com.adivery.sdk.AdiveryListener
 import com.adivery.sdk.AdiveryBannerAdView
 import com.adivery.sdk.BannerSize
 import ir.tapsell.plus.AdRequestCallback
@@ -156,18 +157,17 @@ object YadavarAds {
     }
 
     private fun installRewardListener(activity: Activity, onRewarded: () -> Unit) {
-        val listener = object : AdiveryAdListener() {
-            override fun onAdLoaded() = Unit
-            override fun onAdShown() = Unit
-            override fun onAdClicked() = Unit
-            override fun onError(reason: String) {
+        val listener = object : AdiveryListener() {
+            override fun onRewardedAdLoaded(placementId: String) = Unit
+            override fun onRewardedAdShown(placementId: String) = Unit
+            override fun onRewardedAdClicked(placementId: String) = Unit
+            override fun onRewardedAdClosed(placementId: String, isRewarded: Boolean) {
                 Adivery.removePlacementListener(ADIVERY_REWARDED)
+                if (isRewarded) onRewarded()
             }
+            override fun log(placementId: String, message: String) = Unit
         }
         Adivery.addPlacementListener(ADIVERY_REWARDED, listener)
-        // Adivery's Android SDK reports rewarded completion through its rewarded callback on
-        // versions that expose it; the generic listener is intentionally kept only as a lifecycle
-        // guard. Rewarded use in this app is optional and never gates core functionality.
     }
 
     fun loadTapsellBanner(context: Context, container: FrameLayout, onError: () -> Unit) {
