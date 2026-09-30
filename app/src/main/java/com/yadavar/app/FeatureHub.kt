@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import com.yadavar.app.ads.YadavarNativeAd
 
 object YadavarProgressStore {
     private fun p(c: Context) = c.getSharedPreferences("yadavar_progress", Context.MODE_PRIVATE)
@@ -166,6 +167,11 @@ fun FeatureHubScreen(context: Context, tasks: List<TodoItem>, onAddTask: (TodoIt
                     Text("اعلان خصوصی", Modifier.weight(1f))
                     Switch(privateNotifications, { privateNotifications = it; YadavarProgressStore.setPrivateNotifications(context, it) })
                 }
+            }
+        }
+        item {
+            HubCard("تبلیغ", "محتوای تبلیغاتی") {
+                YadavarNativeAd(Modifier.fillMaxWidth())
             }
         }
         item {
