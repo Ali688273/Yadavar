@@ -15,6 +15,24 @@ android {
         versionName = "1.1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = file("yadavar-release.jks")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("YADAVAR_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("YADAVAR_KEY_ALIAS")
+                keyPassword = System.getenv("YADAVAR_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
     buildFeatures {
         compose = true
     }
