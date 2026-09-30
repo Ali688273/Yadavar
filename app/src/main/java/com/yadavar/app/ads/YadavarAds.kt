@@ -137,30 +137,10 @@ object YadavarAds {
     }
 
     private fun showAdiveryRewarded(activity: Activity, onRewarded: () -> Unit) {
-        if (Adivery.isLoaded(ADIVERY_REWARDED)) {
-            installRewardListener(activity, onRewarded)
-            Adivery.showAd(ADIVERY_REWARDED)
-        } else {
-            val listener = object : AdiveryAdListener() {
-                override fun onAdLoaded() {
-                    installRewardListener(activity, onRewarded)
-                    Adivery.showAd(ADIVERY_REWARDED)
-                    Adivery.removePlacementListener(ADIVERY_REWARDED)
-                }
-                override fun onAdShown() = Unit
-                override fun onAdClicked() = Unit
-                override fun onError(reason: String) {
-                    Adivery.removePlacementListener(ADIVERY_REWARDED)
-                }
-            }
-            Adivery.addPlacementListener(ADIVERY_REWARDED, listener)
-            Adivery.prepareRewardedAd(activity, ADIVERY_REWARDED)
-        }
-    }
-
-    private fun installRewardListener(activity: Activity, onRewarded: () -> Unit) {
         val listener = object : AdiveryListener() {
-            override fun onRewardedAdLoaded(placementId: String) = Unit
+            override fun onRewardedAdLoaded(placementId: String) {
+                Adivery.showAd(ADIVERY_REWARDED)
+            }
             override fun onRewardedAdShown(placementId: String) = Unit
             override fun onRewardedAdClicked(placementId: String) = Unit
             override fun onRewardedAdClosed(placementId: String, isRewarded: Boolean) {
@@ -170,6 +150,11 @@ object YadavarAds {
             override fun log(placementId: String, message: String) = Unit
         }
         Adivery.addPlacementListener(ADIVERY_REWARDED, listener)
+        if (Adivery.isLoaded(ADIVERY_REWARDED)) {
+            Adivery.showAd(ADIVERY_REWARDED)
+        } else {
+            Adivery.prepareRewardedAd(activity, ADIVERY_REWARDED)
+        }
     }
 
     private var lastAppOpenAt = 0L
