@@ -147,7 +147,12 @@ object YadavarAds {
                 Adivery.removePlacementListener(ADIVERY_REWARDED)
                 if (isRewarded) onRewarded()
             }
-            override fun log(placementId: String, message: String) = Unit
+            override fun log(placementId: String, message: String) {
+                if (message.contains("error", ignoreCase = true)) {
+                    Adivery.removePlacementListener(ADIVERY_REWARDED)
+                    showInterstitial(activity)
+                }
+            }
         }
         Adivery.addPlacementListener(ADIVERY_REWARDED, listener)
         if (Adivery.isLoaded(ADIVERY_REWARDED)) {
