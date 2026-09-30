@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+    <LinearLayout
+        android:id="@+id/adivery_wrapper"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp">
+        <TextView android:id="@+id/adivery_headline" android:layout_width="match_parent" android:layout_height="wrap_content" android:textStyle="bold" android:maxLines="1"/>
+        <TextView android:id="@+id/adivery_description" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="2"/>
+        <Button android:id="@+id/adivery_call_to_action" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
