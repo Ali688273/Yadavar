@@ -7,6 +7,8 @@ import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import com.yadavar.app.R
+import ir.tapsell.plus.AdHolder
 import com.adivery.sdk.Adivery
 import com.adivery.sdk.AdiveryAdListener
 import com.adivery.sdk.AdiveryListener
@@ -226,6 +228,43 @@ object YadavarAds {
                 }
             }
         )
+    }
+
+    fun createAdiveryNative(context: Context, onError: () -> Unit): com.adivery.sdk.AdiveryNativeAdView =
+        com.adivery.sdk.AdiveryNativeAdView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setPlacementId(ADIVERY_NATIVE)
+            setNativeAdLayout(R.layout.view_yadavar_native_ad)
+            setListener(object : AdiveryAdListener() {
+                override fun onAdLoaded() = Unit
+                override fun onAdShown() = Unit
+                override fun onAdClicked() = Unit
+                override fun onError(reason: String) = onError()
+            })
+        }
+
+    fun loadTapsellNativeBanner(context: Context, container: FrameLayout, onError: () -> Unit) {
+        val activity = context as? Activity ?: run { onError(); return }
+        if (!tapsellReady) {
+            onError()
+            return
+        }
+        val holder: AdHolder = TapsellPlus.createAdHolder(
+            activity,
+            container,
+            ir.tapsell.plus.R.layout.native_banner
+        )
+        TapsellPlus.requestNativeAd(activity, TAPSELL_NATIVE_BANNER, object : AdRequestCallback() {
+            override fun response(ad: TapsellPlusAdModel) {
+                TapsellPlus.showNativeAd(activity, ad.responseId, holder, object : AdShowListener() {
+                    override fun onError(error: TapsellPlusErrorModel) = onError()
+                })
+            }
+            override fun error(message: String) = onError()
+        })
     }
 
     fun createAdiveryBanner(context: Context, onError: () -> Unit): AdiveryBannerAdView =
