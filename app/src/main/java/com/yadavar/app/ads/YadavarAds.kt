@@ -190,29 +190,34 @@ object YadavarAds {
             onError()
             return
         }
-        TapsellPlus.requestStandardBannerAd(
-            activity,
-            TAPSELL_BANNER,
-            TapsellPlusBannerType.BANNER_320x50,
-            object : AdRequestCallback() {
-                override fun response(ad: TapsellPlusAdModel) {
-                    TapsellPlus.showStandardBannerAd(
-                        activity,
-                        ad.responseId,
-                        container,
-                        object : AdShowListener() {
-                            override fun onError(error: TapsellPlusErrorModel) {
-                                onError()
-                            }
-                        }
-                    )
-                }
 
-                override fun error(message: String) {
-                    onError()
+        fun request(zoneId: String, retryZone: String?) {
+            TapsellPlus.requestStandardBannerAd(
+                activity,
+                zoneId,
+                TapsellPlusBannerType.BANNER_320x50,
+                object : AdRequestCallback() {
+                    override fun response(ad: TapsellPlusAdModel) {
+                        TapsellPlus.showStandardBannerAd(
+                            activity,
+                            ad.responseId,
+                            container,
+                            object : AdShowListener() {
+                                override fun onError(error: TapsellPlusErrorModel) {
+                                    if (retryZone != null) request(retryZone, null) else onError()
+                                }
+                            }
+                        )
+                    }
+
+                    override fun error(message: String) {
+                        if (retryZone != null) request(retryZone, null) else onError()
+                    }
                 }
-            }
-        )
+            )
+        }
+
+        request(TAPSELL_BANNER, TAPSELL_INSTANT_BANNER)
     }
 
     fun createAdiveryNative(context: Context, onError: () -> Unit): com.adivery.sdk.AdiveryNativeAdView =
