@@ -66,8 +66,21 @@ data class TodoItem(
 }
 
 class MainActivity : ComponentActivity() {
+    private var stoppedAt = 0L
     private val permission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    override fun onStop() {
+        stoppedAt = android.os.SystemClock.elapsedRealtime()
+        super.onStop()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (stoppedAt > 0L) {
+            YadavarAds.maybeShowAppOpen(this, android.os.SystemClock.elapsedRealtime() - stoppedAt)
+        }
+    }
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
