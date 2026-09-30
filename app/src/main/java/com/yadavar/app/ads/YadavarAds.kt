@@ -171,23 +171,19 @@ object YadavarAds {
     }
 
     fun loadTapsellBanner(context: Context, container: FrameLayout, onError: () -> Unit) {
+        val activity = context as? Activity ?: run { onError(); return }
         if (!tapsellReady) {
             onError()
             return
         }
         TapsellPlus.requestStandardBannerAd(
-            context,
+            activity,
             TAPSELL_BANNER,
             TapsellPlusBannerType.BANNER_320x50,
             object : AdRequestCallback() {
                 override fun response(ad: TapsellPlusAdModel) {
-                    val banner = View(context)
-                    banner.layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
                     TapsellPlus.showStandardBannerAd(
-                        context,
+                        activity,
                         ad.responseId,
                         container,
                         object : AdShowListener() {
