@@ -40,6 +40,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import com.yadavar.app.ads.YadavarAds
+import com.yadavar.app.ads.YadavarBannerAd
 
 data class TodoItem(
     val id: Int,
@@ -188,12 +190,15 @@ fun YadavarApp(context: Context) {
             })
         },
         bottomBar = {
-            NavigationBar {
+            Column {
+                YadavarBannerAd()
+                NavigationBar {
                 NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.Checklist, "کارها") }, label = { Text("کارها") })
                 NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.Cake, "تولدها") }, label = { Text("تولدها") })
                 NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.AutoAwesome, "حرفه‌ای") }, label = { Text("حرفه‌ای") })
                 NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.EmojiEvents, "مرکز موفقیت") }, label = { Text("مرکز") })
                 NavigationBarItem(selected = tab == 4, onClick = { tab = 4 }, icon = { Icon(Icons.Default.Settings, "تنظیمات") }, label = { Text("تنظیمات") })
+                }
             }
         },
         floatingActionButton = {
@@ -215,7 +220,10 @@ fun YadavarApp(context: Context) {
                     if (i >= 0) {
                         ExtraFeaturesStore.saveUndo(context, tasks[i])
                         tasks[i] = tasks[i].copy(done = !tasks[i].done)
-                        if (tasks[i].done) YadavarProgressStore.recordCompletion(context)
+                        if (tasks[i].done) {
+                            YadavarProgressStore.recordCompletion(context)
+                            (context as? MainActivity)?.let { YadavarAds.maybeShowInterstitial(it) }
+                        }
                         saveT()
                     }
                 },
