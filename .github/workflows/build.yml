@@ -62,3 +62,5 @@ jobs:
         if: always()
         run: rm -f app/yadavar-release.jks
 
+
+# automatic CI verification
