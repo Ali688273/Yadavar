@@ -17,8 +17,6 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
         val month = intent.getIntExtra(EXTRA_MONTH, 0)
         val day = intent.getIntExtra(EXTRA_DAY, 0)
         val type = intent.getIntExtra(EXTRA_TYPE, TYPE_TODAY)
-        val daysBefore = intent.getIntExtra(EXTRA_DAYS_BEFORE, if (type == TYPE_TODAY) 0 else 1)
-        val reminderOffsets = intent.getStringExtra(EXTRA_REMINDER_OFFSETS) ?: "1,0"
 
         if (id < 0 || !isValidDate(month, day)) return
 
@@ -40,11 +38,11 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = if (daysBefore == 0) "امروز تولد است 🎉" else "تولد نزدیک است 🎂"
-        val text = when (daysBefore) {
-            0 -> "امروز تولد $name است. تولدش مبارک!"
-            1 -> "فردا تولد $name است."
-            else -> "$daysBefore روز دیگر تولد $name است."
+        val title = if (type == TYPE_TOMORROW) "تولد نزدیک است 🎂" else "امروز تولد است 🎉"
+        val text = if (type == TYPE_TOMORROW) {
+            "فردا تولد $name است."
+        } else {
+            "امروز تولد $name است. تولدش مبارک!"
         }
 
         manager.notify(
@@ -52,14 +50,20 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(title)
-                .setContentText(if (context.getSharedPreferences("yadavar_progress", 0).getBoolean("private_notifications", false)) "یک یادآوری تولد دارید." else text)
+                .setContentText(text)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setContentIntent(open)
                 .build()
         )
 
-        BirthdayNotificationScheduler.scheduleBirthday(context, id, name, month, day, reminderOffsets)
+        BirthdayNotificationScheduler.scheduleBirthday(
+            context = context,
+            id = id,
+            name = name,
+            month = month,
+            day = day
+        )
     }
 
     private fun isValidDate(month: Int, day: Int): Boolean {
@@ -81,8 +85,5 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
         const val EXTRA_TYPE = "birthday_type"
         const val TYPE_TOMORROW = 1
         const val TYPE_TODAY = 2
-        const val TYPE_BEFORE = 3
-        const val EXTRA_DAYS_BEFORE = "birthday_days_before"
-        const val EXTRA_REMINDER_OFFSETS = "birthday_reminder_offsets"
     }
 }
