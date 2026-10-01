@@ -41,13 +41,11 @@ fun ProfessionalScreen(
     val overdue = tasks.count { !it.done && parseDate(it.dueDate)?.isBefore(today) == true }
     val todayTasks = tasks.filter { t ->
         val due = parseDate(t.dueDate)
-        !ExtraFeaturesStore.archived(context).contains(t.id) &&
-            (due == today || (t.dueDate.isBlank() && !t.done))
+        due == today || (t.dueDate.isBlank() && !t.done)
     }
     val visible = tasks.filter { t ->
         val q = query.trim()
         val matchesQ = q.isBlank() || t.title.contains(q, true) || t.tags.contains(q, true) || t.note.contains(q, true)
-        val notArchived = !ExtraFeaturesStore.archived(context).contains(t.id)
         val matchesFilter = when (filter) {
             "open" -> !t.done
             "done" -> t.done
@@ -56,7 +54,7 @@ fun ProfessionalScreen(
             "today" -> parseDate(t.dueDate) == today
             else -> true
         }
-        notArchived && matchesQ && matchesFilter
+        matchesQ && matchesFilter
     }.let { list ->
         when (sort) {
             "priority" -> list.sortedByDescending { priorityRank(it.priority) }
@@ -68,19 +66,19 @@ fun ProfessionalScreen(
 
     Column(modifier.fillMaxSize().padding(12.dp)) {
         Text("مدیریت حرفه‌ای", fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Text("امروز: ${jalaliDate(today)} • عقب‌افتاده: $overdue", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("امروز: \${jalaliDate(today)} • عقب‌افتاده: \$overdue", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         ScrollableTabRow(selectedTabIndex = section, edgePadding = 0.dp) {
-            listOf("امروز", "تقویم", "همه کارها", "عادت‌ها", "تمرکز", "آمار", "ابزارها", "تکمیل", "۲۰ امکانات").forEachIndexed { i, title ->
+            listOf("امروز", "تقویم", "همه کارها", "عادت‌ها", "تمرکز", "آمار", "ابزارها").forEachIndexed { i, title ->
                 Tab(section == i, { section = i }, text = { Text(title) })
             }
         }
         Spacer(Modifier.height(10.dp))
         when (section) {
-            0 -> TodayPlan(context, tasks = todayTasks, overdue = overdue, onEdit = { editing = it }, onToggle = onUpdate, onDelete = onDelete, onCreate = {
+            0 -> TodayPlan(tasks = todayTasks, overdue = overdue, onEdit = { editing = it }, onToggle = onUpdate, onCreate = {
                 editing = TodoItem(id = -1, title = "", startDate = today.toString(), dueDate = today.toString())
             })
-            1 -> CalendarPlanner(context, tasks = tasks, selected = selectedDate, onSelected = { selectedDate = it }, onEdit = { editing = it }, onUpdate = onUpdate, onDelete = onDelete)
+            1 -> CalendarPlanner(tasks = tasks, selected = selectedDate, onSelected = { selectedDate = it }, onEdit = { editing = it })
             2 -> {
                 OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("جستجو در عنوان، یادداشت و برچسب") }, leadingIcon = { Icon(Icons.Default.Search, null) })
                 Spacer(Modifier.height(8.dp))
@@ -97,22 +95,20 @@ fun ProfessionalScreen(
                 }
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(visible, key = { it.id }) { t ->
-                        AdvancedTaskCard(context, t, { ExtraFeaturesStore.saveUndo(context,t); onUpdate(t.copy(done = !t.done)) }, { editing = t }, { ExtraFeaturesStore.saveUndo(context, t); onDelete(t.id) })
+                        AdvancedTaskCard(t, { onUpdate(t.copy(done = !t.done)) }, { editing = t }, { onDelete(t.id) })
                     }
                 }
             }
             3 -> HabitPanel(context)
-            4 -> FocusPanel(context, tasks)
+            4 -> FocusPanel()
             5 -> StatsPanel(tasks)
-            6 -> ToolsPanel(context)
-            8 -> UltimateFeaturesScreen(context, tasks, onUpdate, onDelete)
-            else -> ExtraFeaturesScreen(context, tasks, onAdd, onUpdate, onDelete)
+            else -> ToolsPanel(context)
         }
     }
     if (editing != null) {
         AdvancedTaskDialog(task = editing!!, dismiss = { editing = null }, save = {
             if (it.title.trim().isNotEmpty()) {
-                if (it.id < 0) onAdd(it.copy(id = (tasks.maxOfOrNull { x -> x.id } ?: 0) + 1)) else { tasks.firstOrNull { x -> x.id == it.id }?.let { old -> ExtraFeaturesStore.saveUndo(context, old) }; onUpdate(it) }
+                if (it.id < 0) onAdd(it.copy(id = (tasks.maxOfOrNull { x -> x.id } ?: 0) + 1)) else onUpdate(it)
             }
             editing = null
         })
@@ -120,16 +116,16 @@ fun ProfessionalScreen(
 }
 
 @Composable
-private fun TodayPlan(context: Context, tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) -> Unit, onToggle: (TodoItem) -> Unit, onDelete: (Int) -> Unit, onCreate: () -> Unit) {
+private fun TodayPlan(tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) -> Unit, onToggle: (TodoItem) -> Unit, onCreate: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text("امروز من", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text("کارهای امروز + کارهای عقب‌افتاده را یکجا ببین.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            if (overdue > 0) Text("⚠ $overdue کار عقب‌افتاده داری.", color = MaterialTheme.colorScheme.error)
+            if (overdue > 0) Text("⚠ \$overdue کار عقب‌افتاده داری.", color = MaterialTheme.colorScheme.error)
             if (tasks.isEmpty()) Text("برای امروز کاری نداری؛ زمان را برای یک هدف مهم استفاده کن.")
             tasks.sortedWith(compareBy<TodoItem> { it.done }.thenByDescending { priorityRank(it.priority) }).forEach {
-                AdvancedTaskCard(context, it, { onToggle(it) }, { onEdit(it) }, { onDelete(it.id) })
+                AdvancedTaskCard(it, { onToggle(it) }, { onEdit(it) }, {})
             }
             TextButton(onClick = onCreate) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(4.dp)); Text("کار برای امروز") }
         }
@@ -137,33 +133,12 @@ private fun TodayPlan(context: Context, tasks: List<TodoItem>, overdue: Int, onE
 }
 
 @Composable
-private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: LocalDate, onSelected: (LocalDate) -> Unit, onEdit: (TodoItem) -> Unit, onUpdate: (TodoItem) -> Unit, onDelete: (Int) -> Unit) {
+private fun CalendarPlanner(tasks: List<TodoItem>, selected: LocalDate, onSelected: (LocalDate) -> Unit, onEdit: (TodoItem) -> Unit) {
     var mode by remember { mutableStateOf("month") }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("day" to "روز", "week" to "هفته", "month" to "ماه").forEach { (v, l) ->
             FilterChip(mode == v, { mode = v }, label = { Text(l) })
         }
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = {
-            onSelected(when (mode) {
-                "day" -> selected.minusDays(1)
-                "week" -> selected.minusWeeks(1)
-                else -> selected.minusMonths(1)
-            })
-        }) { Icon(Icons.Default.ChevronLeft, "قبلی") }
-        TextButton(onClick = { onSelected(LocalDate.now()) }) { Text("امروز") }
-        IconButton(onClick = {
-            onSelected(when (mode) {
-                "day" -> selected.plusDays(1)
-                "week" -> selected.plusWeeks(1)
-                else -> selected.plusMonths(1)
-            })
-        }) { Icon(Icons.Default.ChevronRight, "بعدی") }
     }
     Spacer(Modifier.height(8.dp))
     val dates = when (mode) {
@@ -196,16 +171,15 @@ private fun CalendarPlanner(context: Context, tasks: List<TodoItem>, selected: L
             }
         }
     } else {
-        Text("تاریخ انتخاب‌شده: ${jalaliDate(selected)}", fontWeight = FontWeight.Bold)
+        Text("تاریخ انتخاب‌شده: \${jalaliDate(selected)}", fontWeight = FontWeight.Bold)
         val dayTasks = tasks.filter { parseDate(it.dueDate) == selected }
         if (dayTasks.isEmpty()) Text("کاری برای این روز ثبت نشده.")
-        dayTasks.forEach { AdvancedTaskCard(context, it, { onUpdate(it.copy(done = !it.done)) }, { onEdit(it) }, { onDelete(it.id) }) }
+        dayTasks.forEach { AdvancedTaskCard(it, {}, { onEdit(it) }, {}) }
     }
 }
 
 @Composable
-private fun AdvancedTaskCard(context: Context, task: TodoItem, toggle: () -> Unit, edit: () -> Unit, delete: () -> Unit) {
-    var archived by remember(task.id) { mutableStateOf(ExtraFeaturesStore.archived(context).contains(task.id)) }
+private fun AdvancedTaskCard(task: TodoItem, toggle: () -> Unit, edit: () -> Unit, delete: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(task.done, { toggle() })
@@ -220,7 +194,6 @@ private fun AdvancedTaskCard(context: Context, task: TodoItem, toggle: () -> Uni
                 if (task.note.isNotBlank()) Text(task.note, fontSize = 12.sp)
             }
             IconButton(edit) { Icon(Icons.Default.Edit, "ویرایش") }
-            IconButton({ ExtraFeaturesStore.saveUndo(context, task); archived = !archived; ExtraFeaturesStore.setArchived(context, task.id, archived) }) { Icon(if (archived) Icons.Default.Unarchive else Icons.Default.Archive, "آرشیو") }
             IconButton(delete) { Icon(Icons.Default.Delete, "حذف") }
         }
     }
@@ -306,29 +279,9 @@ private fun HabitPanel(context: Context) {
                     Text("🔥 $streak")
                     Spacer(Modifier.width(6.dp))
                     Button(onClick = {
-                        val today = LocalDate.now().toString()
-                        val key = "habit_dates_" + name
-                        val dates = (prefs.getStringSet(key, emptySet()) ?: emptySet()).toMutableSet()
-                        if (today !in dates) {
-                            dates.add(today)
-                            prefs.edit().putStringSet(key, dates).apply()
-                            val newStreak = calculateHabitStreak(dates)
-                            habits = habits + (name to newStreak)
-                            saveHabits(prefs, habits)
-                        }
+                        habits = habits + (name to streak + 1)
+                        saveHabits(prefs, habits)
                     }) { Text("امروز") }
-                    val dates = prefs.getStringSet("habit_dates_" + name, emptySet()) ?: emptySet()
-                    Text("۷ روز اخیر: " + (0..6).count { LocalDate.now().minusDays(it.toLong()).toString() in dates } + " • بهترین: " + calculateBestStreak(dates), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-    TextButton(onClick = { habits = habits - name; prefs.edit().remove("habit_dates_" + name).apply(); saveHabits(prefs, habits) }) { Text("حذف") }
-    TextButton(onClick = { val cleared = dates.filter { it != LocalDate.now().toString() }.toSet(); prefs.edit().putStringSet("habit_dates_" + name, cleared).apply(); habits = habits + (name to calculateHabitStreak(cleared)); saveHabits(prefs, habits) }) { Text("ثبت/ویرایش امروز") }
-}
-Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-    (0..29).reversed().forEach { offset ->
-        val active = LocalDate.now().minusDays(offset.toLong()).toString() in dates
-        Surface(modifier = Modifier.size(10.dp), color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant) {}
-    }
-}
                 }
             }
         }
@@ -336,37 +289,25 @@ Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
 }
 
 @Composable
-private fun FocusPanel(context: Context, tasks: List<TodoItem>) {
-    var mode by remember { mutableStateOf("تمرکز") }
-    var minutes by remember { mutableIntStateOf(25) }
-    var seconds by remember { mutableIntStateOf(0) }
+private fun FocusPanel() {
+    var seconds by remember { mutableIntStateOf(25 * 60) }
     var running by remember { mutableStateOf(false) }
-    var cycles by remember { mutableIntStateOf(0) }
-    var selectedTask by remember { mutableIntStateOf(-1) }
     LaunchedEffect(running) {
-        while (running) {
+        while (running && seconds > 0) {
             kotlinx.coroutines.delay(1000)
-            if (seconds > 0) seconds-- else if (minutes > 0) minutes-- else {
-                if (mode == "تمرکز") { cycles++; mode="استراحت کوتاه"; minutes=5; seconds=0 }
-                else { mode=if(cycles % 4 == 0) "استراحت بلند" else "تمرکز"; minutes=if(mode=="استراحت بلند")15 else 25; seconds=0 }
-            }
+            seconds--
         }
+        if (seconds == 0) running = false
     }
-    Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)){
-        Text("پومودورو کامل",fontSize=22.sp,fontWeight=FontWeight.Bold)
-        Text(mode,fontSize=18.sp)
-        Text("%02d:%02d".format(minutes,seconds),fontSize=48.sp)
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){
-            Button({running=!running}){Text(if(running)"توقف" else "شروع")}
-            OutlinedButton({running=false;mode="تمرکز";minutes=25;seconds=0}){Text("بازنشانی")}
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Text("پومودورو", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("%02d:%02d".format(seconds / 60, seconds % 60), fontSize = 48.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { running = !running }) { Text(if (running) "توقف" else "شروع") }
+            OutlinedButton(onClick = { running = false; seconds = 25 * 60 }) { Text("بازنشانی") }
         }
-        Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){
-            FilterChip(mode=="تمرکز",{mode="تمرکز";minutes=25;seconds=0},label={Text("تمرکز")})
-            FilterChip(mode=="استراحت کوتاه",{mode="استراحت کوتاه";minutes=5;seconds=0},label={Text("کوتاه")})
-            FilterChip(mode=="استراحت بلند",{mode="استراحت بلند";minutes=15;seconds=0},label={Text("بلند")})
-        }
-        Text("چرخه‌های کامل: " + cycles)
-        tasks.filter{!it.done}.take(8).forEach { t -> TextButton({selectedTask=t.id}){Text((if(selectedTask==t.id) "✓ " else "") + "اتصال به: " + t.title)} }
+        Spacer(Modifier.height(16.dp))
+        Text("ماتریس اهمیت/فوریت: مهم+فوری را اول انجام بده، مهم+غیرفوری را برنامه‌ریزی کن.")
     }
 }
 
@@ -378,7 +319,7 @@ private fun IdeasPanel(context: Context) {
         Text("لیست خرید: از دسته «خرید» برای نگهداری اقلام استفاده کن.")
         Text("مکان در هر کار ذخیره می‌شود و برای مرحله Geofence آماده است.")
         Button(onClick = {
-            val body = "یادآور\nتعداد کارها: ${loadTasks(context).size}\nتعداد تولدها: ${loadBirthdays(context).size}"
+            val body = "یادآور\\nتعداد کارها: \${loadTasks(context).size}\\nتعداد تولدها: \${loadBirthdays(context).size}"
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }, "اشتراک‌گذاری پشتیبان"))
         }) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(6.dp)); Text("خروجی پشتیبان") }
     }
@@ -386,7 +327,7 @@ private fun IdeasPanel(context: Context) {
 
 private fun parseDate(value: String): LocalDate? = try { if (value.isBlank()) null else LocalDate.parse(value, ISO) } catch (_: DateTimeParseException) { null }
 private fun priorityRank(value: String): Int = when (value) { "high" -> 3; "normal" -> 2; else -> 1 }
-private fun jalaliDate(date: LocalDate): String { val (jy, jm, jd) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth); return "$jy/$jm/$jd" }
+private fun jalaliDate(date: LocalDate): String { val (jy, jm, jd) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth); return "\$jy/\$jm/\$jd" }
 private fun jalaliDay(date: LocalDate): String { val (_, _, d) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth); return d.toString() }
 
 private fun gregorianToJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
@@ -508,28 +449,4 @@ private fun loadShopping(context: Context): List<String> =
     context.getSharedPreferences("yadavar_data", 0).getString("shopping", "").orEmpty().split("\n").filter { it.isNotBlank() }
 private fun saveShopping(context: Context, values: List<String>) {
     context.getSharedPreferences("yadavar_data", 0).edit().putString("shopping", values.joinToString("\n")).apply()
-}
-
-
-private fun calculateHabitStreak(dates: Set<String>): Int {
-    var streak = 0
-    var day = LocalDate.now()
-    while (day.toString() in dates) {
-        streak++
-        day = day.minusDays(1)
-    }
-    return streak
-}
-
-private fun calculateBestStreak(dates: Set<String>): Int {
-    var best = 0
-    var current = 0
-    var day = dates.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }.minOrNull()
-    while (day != null) {
-        if (day.toString() in dates) current++ else current = 0
-        best = maxOf(best, current)
-        day = day.plusDays(1)
-        if (day.isAfter(LocalDate.now())) break
-    }
-    return best
 }
