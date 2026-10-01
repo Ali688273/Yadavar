@@ -4,22 +4,17 @@ import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
-import android.util.Base64
-import java.io.File
 import com.yadavar.app.TodoItem
-import com.yadavar.app.core.GeofenceManager
 
 object BackupManager {
 
-    private const val BACKUP_VERSION = 4
+    private const val BACKUP_VERSION = 2
 
     data class BackupData(
         val tasks: List<TodoItem>,
         val birthdays: List<StoredBirthday>,
         val habits: Map<String, Int>,
-        val shopping: List<String>,
-        val settings: Pair<Boolean, Boolean> = true to false,
-        val extra: JSONObject = JSONObject()
+        val shopping: List<String>
     )
 
     fun createBackup(context: Context): String {
@@ -28,7 +23,6 @@ object BackupManager {
             .put("format", "yadavar-backup")
             .put("version", BACKUP_VERSION)
             .put("createdAt", System.currentTimeMillis())
-            .put("settings", JSONObject().put("smartAutoCarry", prefs.getBoolean("smart_auto_carry", true)).put("compactMode", prefs.getBoolean("compact_mode", false)))
 
         val tasks = JSONArray()
         loadTasksFromPrefs(prefs).forEach { task ->
@@ -58,7 +52,7 @@ object BackupManager {
                 .put("id", birthday.id)
                 .put("name", birthday.name)
                 .put("month", birthday.month)
-                .put("day", birthday.day).put("year", birthday.year ?: JSONObject.NULL).put("reminderOffsets", birthday.reminderOffsets))
+                .put("day", birthday.day))
         }
 
         val habits = JSONObject()
@@ -73,58 +67,6 @@ object BackupManager {
         root.put("birthdays", birthdays)
         root.put("habits", habits)
         root.put("shopping", shopping)
-        val extra = JSONObject()
-        val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
-        extra.put("inbox", JSONArray(ep.getString("inbox", "").orEmpty().split("\n").filter { it.isNotBlank() }))
-        extra.put("archivedIds", JSONArray(ep.getStringSet("archived_ids", emptySet()) ?: emptySet<String>()))
-        extra.put("templates", ep.getString("templates", "").orEmpty())
-        extra.put("weeklyGoal", ep.getInt("weekly_goal", 10))
-        val habitHistory = JSONObject()
-        loadHabits(prefs).keys.forEach { name ->
-            habitHistory.put(name, JSONArray(prefs.getStringSet("habit_dates_" + name, emptySet()) ?: emptySet<String>()))
-        }
-        extra.put("habitHistory", habitHistory)
-        // Include all Ultimate feature state and app-private media so restore is complete.
-        val up = context.getSharedPreferences("yadavar_ultimate", Context.MODE_PRIVATE)
-        val ultimatePrefs = JSONObject()
-        up.all.forEach { (key, value) ->
-            when (value) {
-                is String -> ultimatePrefs.put(key, value)
-                is Int -> ultimatePrefs.put(key, value)
-                is Boolean -> ultimatePrefs.put(key, value)
-                is Long -> ultimatePrefs.put(key, value)
-                is Float -> ultimatePrefs.put(key, value.toDouble())
-                is Set<*> -> ultimatePrefs.put(key, JSONArray(value.mapNotNull { it?.toString() }))
-            }
-        }
-        extra.put("ultimatePrefs", ultimatePrefs)
-        val media = JSONArray()
-        listOf(File(context.filesDir, "attachments"), File(context.filesDir, "audio")).forEach { rootDir ->
-            if (rootDir.exists()) rootDir.walkTopDown().filter { it.isFile }.forEach { file ->
-                runCatching {
-                    media.put(JSONObject()
-                        .put("relative", context.filesDir.toPath().relativize(file.toPath()).toString())
-                        .put("data", Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)))
-                }
-            }
-        }
-        extra.put("ultimateFiles", media)
-        val geofences = JSONArray()
-        GeofenceManager.load(context).forEach { item ->
-            geofences.put(JSONObject()
-                .put("taskId", item.taskId)
-                .put("title", item.title)
-                .put("lat", item.latitude)
-                .put("lon", item.longitude)
-                .put("radius", item.radius))
-        }
-        extra.put("geofences", geofences)
-        val progress = context.getSharedPreferences("yadavar_progress", Context.MODE_PRIVATE)
-        extra.put("progressCompletionDates", JSONArray(progress.getStringSet("completion_dates", emptySet()) ?: emptySet<String>()))
-        extra.put("progressFocusMinutes", progress.getInt("focus_minutes", 0))
-        extra.put("progressTheme", progress.getString("theme", "system") ?: "system")
-        extra.put("progressPrivateNotifications", progress.getBoolean("private_notifications", false))
-        root.put("extra", extra)
         return root.toString(2)
     }
 
@@ -135,11 +77,11 @@ object BackupManager {
         return parseBackup(json)
     }
 
-    fun applyBackup(context: Context, data: BackupData, includeTasks: Boolean = true, includeBirthdays: Boolean = true, includeHabits: Boolean = true, includeShopping: Boolean = true) {
+    fun applyBackup(context: Context, data: BackupData) {
         val prefs = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE)
         val editor = prefs.edit()
 
-        if (includeTasks) editor.putString("tasks", data.tasks.joinToString("\n") {
+        editor.putString("tasks", data.tasks.joinToString("\n") {
             it.id.toString() + "\t" +
                 (if (it.done) "1" else "0") + "\t" +
                 clean(it.title) + "\t" +
@@ -153,93 +95,16 @@ object BackupManager {
         })
         editor.putString("tasks_date", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()))
 
-        if (includeBirthdays) editor.putString("birthdays", data.birthdays.joinToString("\n") {
-            it.id.toString() + "\t" + clean(it.name) + "\t" + it.month + "\t" + it.day + "\t" + (it.year?.toString() ?: "") + "\t" + it.reminderOffsets
+        editor.putString("birthdays", data.birthdays.joinToString("\n") {
+            it.id.toString() + "\t" + clean(it.name) + "\t" + it.month + "\t" + it.day
         })
 
-        if (includeHabits) editor.putString(
+        editor.putString(
             "habits",
             data.habits.entries.joinToString("\n") { clean(it.key) + "\t" + it.value.coerceAtLeast(0) }
         )
 
-        if (includeShopping) editor.putString("shopping", data.shopping.map(::clean).filter { it.isNotBlank() }.joinToString("\n"))
-        editor.putBoolean("smart_auto_carry", data.settings.first)
-        editor.putBoolean("compact_mode", data.settings.second)
-        val ep = context.getSharedPreferences("yadavar_extra", Context.MODE_PRIVATE)
-        val ex = data.extra
-        val ultimatePrefs = ex.optJSONObject("ultimatePrefs")
-        if (ultimatePrefs != null) {
-            val ue = context.getSharedPreferences("yadavar_ultimate", Context.MODE_PRIVATE).edit().clear()
-            val keys = ultimatePrefs.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                val value = ultimatePrefs.opt(key)
-                when (value) {
-                    is Boolean -> ue.putBoolean(key,value)
-                    is Int -> ue.putInt(key,value)
-                    is Long -> ue.putLong(key,value)
-                    is Double -> ue.putFloat(key,value.toFloat())
-                    is String -> ue.putString(key,value)
-                    is JSONArray -> ue.putStringSet(key,(0 until value.length()).map{value.optString(it)}.toSet())
-                }
-            }
-            ue.apply()
-        }
-        val geofences = ex.optJSONArray("geofences")
-        if (geofences != null) {
-            val restored = buildList {
-                for (i in 0 until geofences.length()) {
-                    val o = geofences.optJSONObject(i) ?: continue
-                    val taskId = o.optInt("taskId", -1)
-                    val lat = o.optDouble("lat", Double.NaN)
-                    val lon = o.optDouble("lon", Double.NaN)
-                    val radius = o.optDouble("radius", 150.0).toFloat()
-                    if (taskId >= 0 && lat.isFinite() && lon.isFinite() && radius > 0f) add(GeofenceManager.Item(taskId, o.optString("title"), lat, lon, radius))
-                }
-            }
-            GeofenceManager.replaceAll(context, restored)
-        }
-        val progress = context.getSharedPreferences("yadavar_progress", Context.MODE_PRIVATE)
-        val progressDates = ex.optJSONArray("progressCompletionDates")
-        val progressEditor = progress.edit()
-        if (progressDates != null) {
-            progressEditor.putStringSet("completion_dates", (0 until progressDates.length()).map { progressDates.optString(it) }.filter { it.isNotBlank() }.toSet())
-        }
-        progressEditor.putInt("focus_minutes", ex.optInt("progressFocusMinutes", 0).coerceAtLeast(0))
-        progressEditor.putString("theme", ex.optString("progressTheme", "system"))
-        progressEditor.putBoolean("private_notifications", ex.optBoolean("progressPrivateNotifications", false)).apply()
-        val media = ex.optJSONArray("ultimateFiles")
-        if (media != null) {
-            for (i in 0 until media.length()) {
-                val o = media.optJSONObject(i) ?: continue
-                val relative = o.optString("relative")
-                runCatching {
-                    val base = context.filesDir.canonicalFile
-                    val out = File(base, relative).canonicalFile
-                    val basePath = base.path + File.separator
-                    if (!out.path.startsWith(basePath)) return@runCatching
-                    out.parentFile?.mkdirs()
-                    out.writeBytes(Base64.decode(o.optString("data"), Base64.DEFAULT))
-                }
-            }
-        }
-        
-        ep.edit()
-            .putString("inbox", ex.optJSONArray("inbox")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }.joinToString("\n") } ?: "")
-            .putStringSet("archived_ids", ex.optJSONArray("archivedIds")?.let { a -> (0 until a.length()).mapNotNull { a.optInt(it, -1).takeIf { id -> id >= 0 } }.map { it.toString() }.toSet() } ?: emptySet())
-            .putString("templates", ex.optString("templates", ""))
-            .putInt("weekly_goal", ex.optInt("weeklyGoal", 10).coerceIn(1,999))
-            .apply()
-        val history = ex.optJSONObject("habitHistory")
-        if (history != null) {
-            val keys = history.keys()
-            while (keys.hasNext()) {
-                val name = keys.next()
-                val a = history.optJSONArray(name) ?: JSONArray()
-                val set = (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }.toSet()
-                prefs.edit().putStringSet("habit_dates_" + name, set).apply()
-            }
-        }
+        editor.putString("shopping", data.shopping.map(::clean).filter { it.isNotBlank() }.joinToString("\n"))
         editor.apply()
     }
 
@@ -296,7 +161,7 @@ object BackupManager {
             val month = o.optInt("month", 0)
             val day = o.optInt("day", 0)
             if (id >= 0 && name.isNotBlank() && month in 1..12 && day in 1..31) {
-                birthdays += StoredBirthday(id, name, month, day, o.optInt("year", 0).takeIf { it in 1900..2200 }, o.optString("reminderOffsets", "1,0").ifBlank { "1,0" })
+                birthdays += StoredBirthday(id, name, month, day)
             }
         }
 
@@ -317,16 +182,11 @@ object BackupManager {
             if (value.isNotBlank()) shopping += value
         }
 
-        val settingsJson = root.optJSONObject("settings")
-        val settings = (settingsJson?.optBoolean("smartAutoCarry", true) ?: true) to (settingsJson?.optBoolean("compactMode", false) ?: false)
-        val extra = root.optJSONObject("extra") ?: JSONObject()
         return BackupData(
             tasks = tasks.distinctBy { it.id },
             birthdays = birthdays.distinctBy { it.id },
             habits = habits,
-            shopping = shopping.distinct(),
-            settings = settings,
-            extra = extra
+            shopping = shopping.distinct()
         )
     }
 
@@ -375,16 +235,17 @@ object BackupManager {
         }
     }
 
-    private fun loadBirthdaysFromPrefs(prefs: android.content.SharedPreferences): List<StoredBirthday> =
-        prefs.getString("birthdays", null).orEmpty().split("\n").mapNotNull { row ->
-            val x=row.split("\t",limit=6)
-            if(x.size<4)return@mapNotNull null
-            val id=x[0].toIntOrNull()?:return@mapNotNull null
-            val month=x[2].toIntOrNull()?:return@mapNotNull null
-            val day=x[3].toIntOrNull()?:return@mapNotNull null
-            if(month !in 1..12||day !in 1..31)null
-            else StoredBirthday(id,x[1],month,day,x.getOrNull(4)?.toIntOrNull()?.takeIf{it in 1900..2200},x.getOrNull(5).orEmpty().ifBlank{"1,0"})
-        )
+    private fun loadBirthdaysFromPrefs(prefs: android.content.SharedPreferences): List<StoredBirthday> {
+        val raw = prefs.getString("birthdays", null) ?: return emptyList()
+        return raw.split("\n").mapNotNull { row ->
+            val x = row.split("\t", limit = 4)
+            if (x.size != 4) return@mapNotNull null
+            val id = x[0].toIntOrNull() ?: return@mapNotNull null
+            val month = x[2].toIntOrNull() ?: return@mapNotNull null
+            val day = x[3].toIntOrNull() ?: return@mapNotNull null
+            if (month !in 1..12 || day !in 1..31) null else StoredBirthday(id, x[1], month, day)
+        }
+    }
 
     private fun loadHabits(prefs: android.content.SharedPreferences): Map<String, Int> =
         prefs.getString("habits", "").orEmpty().split("\n").mapNotNull {
