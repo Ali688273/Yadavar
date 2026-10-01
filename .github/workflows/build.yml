@@ -66,4 +66,4 @@ concurrency:
   group: yadavar-build-${{ github.ref }}
   cancel-in-progress: true
 
-# automatic CI trigger verification
+# PR verification trigger
