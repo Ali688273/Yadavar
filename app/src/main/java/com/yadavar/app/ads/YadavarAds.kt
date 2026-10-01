@@ -56,7 +56,7 @@ object YadavarAds {
         initialized = true
         Adivery.setLoggingEnabled(false)
         Adivery.configure(context.applicationContext, ADIVERY_APP_ID)
-        TapsellPlus.initialize(context.applicationContext, TAPSELL_KEY, object : TapsellPlusInitListener {
+        TapsellPlus.initialize(context.applicationContext as android.app.Application, TAPSELL_KEY, object : TapsellPlusInitListener {
             override fun onInitializeSuccess(adNetworks: AdNetworks) {
                 tapsellReady = true
                 Log.d(TAG, "TapsellPlus initialized")
@@ -97,15 +97,20 @@ object YadavarAds {
         if (Adivery.isLoaded(ADIVERY_INTERSTITIAL)) {
             Adivery.showAd(ADIVERY_INTERSTITIAL)
         } else {
-            val listener = object : AdiveryAdListener() {
-                override fun onAdLoaded() {
-                    Adivery.showAd(ADIVERY_INTERSTITIAL)
-                    Adivery.removePlacementListener(ADIVERY_INTERSTITIAL)
+            val listener = object : AdiveryListener() {
+                override fun onInterstitialAdLoaded(placementId: String) {
+                    if (placementId == ADIVERY_INTERSTITIAL) {
+                        Adivery.showAd(placementId)
+                        Adivery.removePlacementListener(ADIVERY_INTERSTITIAL)
+                    }
                 }
-                override fun onAdShown() = Unit
-                override fun onAdClicked() = Unit
-                override fun onError(reason: String) {
-                    Adivery.removePlacementListener(ADIVERY_INTERSTITIAL)
+                override fun onInterstitialAdShown(placementId: String) = Unit
+                override fun onInterstitialAdClicked(placementId: String) = Unit
+                override fun onInterstitialAdClosed(placementId: String) = Unit
+                override fun log(placementId: String, message: String) {
+                    if (placementId == ADIVERY_INTERSTITIAL && message.contains("error", ignoreCase = true)) {
+                        Adivery.removePlacementListener(ADIVERY_INTERSTITIAL)
+                    }
                 }
             }
             Adivery.addPlacementListener(ADIVERY_INTERSTITIAL, listener)
@@ -251,7 +256,10 @@ object YadavarAds {
             activity,
             container,
             ir.tapsell.plus.R.layout.native_banner
-        )
+        ) ?: run {
+            onError()
+            return
+        }
         TapsellPlus.requestNativeAd(activity, TAPSELL_NATIVE_BANNER, object : AdRequestCallback() {
             override fun response(ad: TapsellPlusAdModel) {
                 TapsellPlus.showNativeAd(activity, ad.responseId, holder, object : AdShowListener() {
