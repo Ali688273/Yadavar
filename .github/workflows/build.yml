@@ -63,3 +63,5 @@ jobs:
         run: rm -f app/yadavar-release.jks
 
 # CI verification trigger
+
+# trigger PR CI
