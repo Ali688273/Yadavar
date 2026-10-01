@@ -2,8 +2,6 @@ package com.yadavar.app
 
 import android.Manifest
 import android.content.Context
-import android.content.pm.ShortcutInfo
-import android.content.pm.ShortcutManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -26,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yadavar.app.core.BackupManager
 import com.yadavar.app.core.BirthdayNotificationScheduler
-import com.yadavar.app.core.GeofenceManager
 import com.yadavar.app.core.BirthdayReminderEngine
 import com.yadavar.app.core.StoredBirthday
 import com.yadavar.app.core.TaskNotificationScheduler
@@ -35,13 +32,6 @@ import com.yadavar.app.core.TaskReminderCodec
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.security.MessageDigest
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
-import com.yadavar.app.ads.YadavarAds
-import com.yadavar.app.ads.YadavarBannerAd
 
 data class TodoItem(
     val id: Int,
@@ -66,21 +56,8 @@ data class TodoItem(
 }
 
 class MainActivity : ComponentActivity() {
-    private var stoppedAt = 0L
     private val permission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
-
-    override fun onStop() {
-        stoppedAt = android.os.SystemClock.elapsedRealtime()
-        super.onStop()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        if (stoppedAt > 0L) {
-            YadavarAds.maybeShowAppOpen(this, android.os.SystemClock.elapsedRealtime() - stoppedAt)
-        }
-    }
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
@@ -88,14 +65,7 @@ class MainActivity : ComponentActivity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
 
-        if (Build.VERSION.SDK_INT >= 25) {
-            val manager = getSystemService(ShortcutManager::class.java)
-            manager.dynamicShortcuts = listOf(
-                ShortcutInfo.Builder(this, "new_task").setShortLabel("کار جدید").setLongLabel("افزودن کار جدید").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_input_add)).setIntent(android.content.Intent(this, MainActivity::class.java).putExtra("new_task", true)).build(),
-                ShortcutInfo.Builder(this, "birthdays").setShortLabel("تولدها").setLongLabel("باز کردن تولدها").setIcon(android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_my_calendar)).setIntent(android.content.Intent(this, MainActivity::class.java).putExtra("open_birthdays", true)).build()
-            )
-        }
-        setContent { YadavarAppTheme(this) { YadavarApp(this) } }
+        setContent { YadavarApp(this) }
     }
 }
 
@@ -111,9 +81,6 @@ fun YadavarApp(context: Context) {
     var taskToDelete by remember { mutableStateOf<TodoItem?>(null) }
     var birthdayToDelete by remember { mutableStateOf<StoredBirthday?>(null) }
     var taskQuery by remember { mutableStateOf("") }
-    var unlocked by rememberSaveable { mutableStateOf(ExtraFeaturesStore.pin(context).isBlank()) }
-    var unlockPin by remember { mutableStateOf("") }
-    var pendingBackup by remember { mutableStateOf<BackupManager.BackupData?>(null) }
 
     val tasks = remember { mutableStateListOf<TodoItem>().apply { addAll(loadTasks(context)) } }
     val birthdays = remember { mutableStateListOf<StoredBirthday>().apply { addAll(loadBirthdays(context)) } }
@@ -136,82 +103,51 @@ fun YadavarApp(context: Context) {
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        runCatching { pendingBackup = BackupManager.restoreFromUri(context, uri) }
-            .onFailure { Toast.makeText(context, "فایل نامعتبر است: " + (it.message ?: "خطا"), Toast.LENGTH_LONG).show() }
+        runCatching {
+            val backup = BackupManager.restoreFromUri(context, uri)
+            BackupManager.applyBackup(context, backup)
+            tasks.clear()
+            tasks.addAll(loadTasks(context))
+            birthdays.clear()
+            birthdays.addAll(loadBirthdays(context))
+            TaskNotificationScheduler.scheduleAll(context, tasks)
+            BirthdayNotificationScheduler.scheduleAll(context, birthdays)
+            Toast.makeText(context, "بازیابی انجام شد: " + backup.tasks.size + " کار و " + backup.birthdays.size + " تولد", Toast.LENGTH_LONG).show()
+        }.onFailure {
+            Toast.makeText(context, "بازیابی انجام نشد: " + (it.message ?: "فایل نامعتبر است"), Toast.LENGTH_LONG).show()
+        }
     }
 
 
     fun saveT() {
         saveTasks(context, tasks)
-        UltimateHistory.sync(context, tasks)
         TaskNotificationScheduler.scheduleAll(context, tasks)
-        refreshWidget(context)
     }
     fun saveB() {
         saveBirthdays(context, birthdays)
         BirthdayNotificationScheduler.scheduleAll(context, birthdays)
-        refreshWidget(context)
     }
 
     LaunchedEffect(Unit) {
-        val extraPrefs = context.getSharedPreferences("yadavar_data", Context.MODE_PRIVATE)
-        if (extraPrefs.getBoolean("smart_auto_carry", true) &&
-            extraPrefs.getString("last_auto_carry_date", "") != java.time.LocalDate.now().toString()) {
-            val today = java.time.LocalDate.now()
-            var changed = false
-            for (i in tasks.indices) {
-                val t = tasks[i]
-                if (!t.done && t.dueDate.isNotBlank()) {
-                    val due = runCatching { java.time.LocalDate.parse(t.dueDate) }.getOrNull()
-                    if (due != null && due.isBefore(today)) {
-                        tasks[i] = t.copy(dueDate = today.toString())
-                        changed = true
-                    }
-                }
-            }
-            extraPrefs.edit().putString("last_auto_carry_date", today.toString()).apply()
-            if (changed) saveT()
-        }
         BirthdayNotificationScheduler.scheduleAll(context, birthdays)
         TaskNotificationScheduler.scheduleAll(context, tasks)
-    }
-
-    val lifecycleOwner = context as? androidx.lifecycle.LifecycleOwner
-    DisposableEffect(lifecycleOwner) {
-        if (lifecycleOwner == null) return@DisposableEffect onDispose {}
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP && ExtraFeaturesStore.pin(context).isNotBlank()) unlocked = false
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    val activity = context as? MainActivity
-    LaunchedEffect(Unit) {
-        if (activity?.intent?.getBooleanExtra("open_birthdays", false) == true) tab = 1
-        if (activity?.intent?.getBooleanExtra("new_task", false) == true) addTask = true
-        activity?.intent?.removeExtra("open_birthdays")
-        activity?.intent?.removeExtra("new_task")
     }
 
     Scaffold(
         topBar = {
             TopAppBar(title = {
                 Text(
-                    if (tab == 0) "یادآور" else if (tab == 1) "تولدها 🎂" else if (tab == 2) "حرفه‌ای" else if (tab == 3) "مرکز موفقیت" else "تنظیمات",
+                    if (tab == 0) "یادآور" else if (tab == 1) "تولدها 🎂" else if (tab == 2) "حرفه‌ای" else "تنظیمات",
                     fontWeight = FontWeight.Bold
                 )
             })
         },
         bottomBar = {
-            Column {
-                YadavarBannerAd()
-                NavigationBar {
+            NavigationBar {
                 NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.Checklist, "کارها") }, label = { Text("کارها") })
                 NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.Cake, "تولدها") }, label = { Text("تولدها") })
                 NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.AutoAwesome, "حرفه‌ای") }, label = { Text("حرفه‌ای") })
-                NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.EmojiEvents, "مرکز موفقیت") }, label = { Text("مرکز") })
-                NavigationBarItem(selected = tab == 4, onClick = { tab = 4 }, icon = { Icon(Icons.Default.Settings, "تنظیمات") }, label = { Text("تنظیمات") })
-                }
+                NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.Settings, "تنظیمات") }, label = { Text("تنظیمات") })
             }
         },
         floatingActionButton = {
@@ -224,19 +160,13 @@ fun YadavarApp(context: Context) {
     ) { pad ->
         when (tab) {
             0 -> TodoScreen(
-                context = context,
                 tasks = tasks,
                 query = taskQuery,
                 onQueryChange = { taskQuery = it },
                 toggle = { id ->
                     val i = tasks.indexOfFirst { it.id == id }
                     if (i >= 0) {
-                        ExtraFeaturesStore.saveUndo(context, tasks[i])
                         tasks[i] = tasks[i].copy(done = !tasks[i].done)
-                        if (tasks[i].done) {
-                            YadavarProgressStore.recordCompletion(context)
-                            (context as? MainActivity)?.let { YadavarAds.maybeShowInterstitial(it) }
-                        }
                         saveT()
                     }
                 },
@@ -255,23 +185,8 @@ fun YadavarApp(context: Context) {
                 },
                 modifier = Modifier.padding(pad)
             )
-            2 -> ProfessionalScreen(context = context, tasks = tasks, onAdd = { tasks.add(it); saveT() }, onUpdate = { item -> val i = tasks.indexOfFirst { it.id == item.id }; if (i >= 0) { tasks[i] = item; saveT() } }, onDelete = { id ->
-                TaskNotificationScheduler.cancelTask(context, id)
-                GeofenceManager.remove(context, id)
-                UltimateStore.removeAllTaskState(context, id)
-                tasks.removeAll { it.id == id }
-                saveT()
-            }, modifier = Modifier.padding(pad))
-            3 -> FeatureHubScreen(context = context, tasks = tasks, onAddTask = { item ->
-                val newId = (tasks.maxOfOrNull { it.id } ?: 0) + 1
-                tasks.add(item.copy(id = newId))
-                saveT()
-            }, onUpdateTask = { item ->
-                val index = tasks.indexOfFirst { it.id == item.id }
-                if (index >= 0) { tasks[index] = item; saveT() }
-            })
+            2 -> ProfessionalScreen(context = context, tasks = tasks, onAdd = { tasks.add(it); saveT() }, onUpdate = { item -> val i = tasks.indexOfFirst { it.id == item.id }; if (i >= 0) { tasks[i] = item; saveT() } }, onDelete = { id -> tasks.removeAll { it.id == id }; saveT() }, modifier = Modifier.padding(pad))
             else -> SettingsScreen(
-                context = context,
                 total = tasks.size,
                 done = tasks.count { it.done },
                 birthdays = birthdays.size,
@@ -286,19 +201,6 @@ fun YadavarApp(context: Context) {
         }
     }
 
-    if (pendingBackup != null) {
-        val data = pendingBackup!!
-        var includeTasks by remember { mutableStateOf(true) }
-        var includeBirthdays by remember { mutableStateOf(true) }
-        var includeHabits by remember { mutableStateOf(true) }
-        var includeShopping by remember { mutableStateOf(true) }
-        AlertDialog(onDismissRequest={pendingBackup=null},title={Text("پیش‌نمایش و انتخاب بازیابی")},text={Column(verticalArrangement=Arrangement.spacedBy(5.dp)){Text("فایل معتبر است: "+data.tasks.size+" کار • "+data.birthdays.size+" تولد • "+data.habits.size+" عادت • "+data.shopping.size+" خرید");Row(verticalAlignment=Alignment.CenterVertically){Text("کارها",Modifier.weight(1f));Switch(includeTasks,{includeTasks=it})};Row(verticalAlignment=Alignment.CenterVertically){Text("تولدها",Modifier.weight(1f));Switch(includeBirthdays,{includeBirthdays=it})};Row(verticalAlignment=Alignment.CenterVertically){Text("عادت‌ها",Modifier.weight(1f));Switch(includeHabits,{includeHabits=it})};Row(verticalAlignment=Alignment.CenterVertically){Text("خرید",Modifier.weight(1f));Switch(includeShopping,{includeShopping=it})}}},confirmButton={Button(onClick={BackupManager.applyBackup(context,data,includeTasks,includeBirthdays,includeHabits,includeShopping);tasks.clear();tasks.addAll(loadTasks(context));birthdays.clear();birthdays.addAll(loadBirthdays(context));pendingBackup=null;TaskNotificationScheduler.scheduleAll(context,tasks);BirthdayNotificationScheduler.scheduleAll(context,birthdays)}){Text("بازیابی")}},dismissButton={TextButton({pendingBackup=null}){Text("انصراف")}})
-    }
-
-    if (!unlocked) {
-        AlertDialog(onDismissRequest = {}, title = { Text("قفل برنامه") }, text = { OutlinedTextField(unlockPin, { unlockPin = it.filter(Char::isDigit).take(8) }, singleLine = true, label = { Text("PIN") }) }, confirmButton = { Button(onClick = { if (ExtraFeaturesStore.verifyPin(context, unlockPin)) { unlocked = true; unlockPin = "" } }) { Text("ورود") } })
-    }
-
     if (taskToDelete != null) {
         val task = taskToDelete!!
         AlertDialog(
@@ -308,10 +210,6 @@ fun YadavarApp(context: Context) {
             confirmButton = {
                 Button(onClick = {
                     TaskNotificationScheduler.cancelTask(context, task.id)
-                    ExtraFeaturesStore.saveUndo(context, task)
-                    ExtraFeaturesStore.setArchived(context, task.id, false)
-                    GeofenceManager.remove(context, task.id)
-                    UltimateStore.removeAllTaskState(context, task.id)
                     tasks.removeAll { it.id == task.id }
                     saveT()
                     taskToDelete = null
@@ -351,13 +249,6 @@ fun YadavarApp(context: Context) {
             text = { Text("همه کارهای انجام‌شده حذف شوند؟") },
             confirmButton = {
                 Button(onClick = {
-                    tasks.filter { it.done }.lastOrNull()?.let { ExtraFeaturesStore.saveUndo(context, it) }
-                    tasks.filter { it.done }.forEach {
-                        TaskNotificationScheduler.cancelTask(context, it.id)
-                        GeofenceManager.remove(context, it.id)
-                        UltimateStore.removeAllTaskState(context, it.id)
-                        ExtraFeaturesStore.setArchived(context, it.id, false)
-                    }
                     tasks.removeAll { it.done }
                     saveT()
                     showDeleteCompleted = false
@@ -413,10 +304,15 @@ fun YadavarApp(context: Context) {
     }
 
     if (addBirthday) {
-        AddBirthdayDialog(dismiss = { addBirthday = false }) { name, m, d, y, offsets ->
+        AddBirthdayDialog(dismiss = { addBirthday = false }) { name, m, d ->
             if (name.trim().isNotEmpty() && isValidBirthdayDate(m, d)) {
                 birthdays.add(
-                    StoredBirthday((birthdays.maxOfOrNull { it.id } ?: 0) + 1, name.trim(), m, d, y, offsets)
+                    StoredBirthday(
+                        (birthdays.maxOfOrNull { it.id } ?: 0) + 1,
+                        name.trim(),
+                        m,
+                        d
+                    )
                 )
                 saveB()
             }
@@ -428,7 +324,7 @@ fun YadavarApp(context: Context) {
         EditBirthdayDialog(
             birthday = birthday,
             dismiss = { editingBirthday = null },
-            save = { name, month, day, year, offsets ->
+            save = { name, month, day ->
                 val index = birthdays.indexOfFirst { it.id == birthday.id }
                 if (index >= 0) {
                     BirthdayNotificationScheduler.cancelBirthday(
@@ -440,9 +336,7 @@ fun YadavarApp(context: Context) {
                     birthdays[index] = birthday.copy(
                         name = name.trim(),
                         month = month,
-                        day = day,
-                        year = year,
-                        reminderOffsets = offsets
+                        day = day
                     )
                     saveB()
                 }
@@ -454,7 +348,6 @@ fun YadavarApp(context: Context) {
 
 @Composable
 fun TodoScreen(
-    context: Context,
     tasks: List<TodoItem>,
     query: String,
     onQueryChange: (String) -> Unit,
@@ -464,18 +357,11 @@ fun TodoScreen(
     onRequestClear: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val archived = ExtraFeaturesStore.archived(context = context)
-    val order = UltimateStore.taskOrder(context)
-    val visibleTasks = tasks.filterNot { it.id in archived }.sortedWith(compareBy({ val i = order.indexOf(it.id); if (i < 0) Int.MAX_VALUE else i }, { it.id }))
-    val done = visibleTasks.count { it.done }
-    val filtered = if (query.isBlank()) visibleTasks else visibleTasks.filter {
-        val q = query.trim()
-        it.title.contains(q, ignoreCase = true) ||
-            it.note.contains(q, ignoreCase = true) ||
-            it.tags.contains(q, ignoreCase = true) ||
-            it.category.contains(q, ignoreCase = true)
+    val done = tasks.count { it.done }
+    val filtered = if (query.isBlank()) tasks else tasks.filter {
+        it.title.contains(query.trim(), ignoreCase = true)
     }
-    val progress = if (visibleTasks.isEmpty()) 0f else done.toFloat() / visibleTasks.size.toFloat()
+    val progress = if (tasks.isEmpty()) 0f else done.toFloat() / tasks.size.toFloat()
 
     Column(modifier.fillMaxSize().padding(16.dp)) {
         Text("کارهای امروز", fontSize = 26.sp, fontWeight = FontWeight.Bold)
@@ -491,8 +377,6 @@ fun TodoScreen(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
-            HomeDashboard(context, visibleTasks)
         }
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
@@ -517,7 +401,7 @@ fun TodoScreen(
                 Text("حذف انجام‌شده‌ها")
             }
         }
-        if (visibleTasks.isEmpty()) {
+        if (tasks.isEmpty()) {
             Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -612,7 +496,6 @@ fun EditTaskDialog(
                     Text("یادآوری زمان‌دار")
                 }
                 if (reminderEnabled) {
-                    ReminderEditor(reminders) { reminders = it }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             hour, { hour = it.filter(Char::isDigit).take(2) },
@@ -836,7 +719,6 @@ fun BirthdayScreen(
                                 Text(b.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                                 Text("تاریخ: " + b.day + "/" + b.month, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(if (r.isToday) "امروز تولدشه 🎉" else r.daysUntil.toString() + " روز تا تولد")
-                                b.year?.let { y -> if (y in 1900..2200) Text("سن: " + birthdayAge(y, b.month, b.day)) }
                             }
                             IconButton({ edit(b) }) { Icon(Icons.Default.Edit, "ویرایش") }
                             IconButton({ delete(b) }) { Icon(Icons.Default.Delete, "حذف") }
@@ -849,12 +731,10 @@ fun BirthdayScreen(
 }
 
 @Composable
-fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int, Int?, String) -> Unit) {
+fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int) -> Unit) {
     var name by remember { mutableStateOf("") }
     var day by remember { mutableStateOf("") }
     var month by remember { mutableStateOf("") }
-    var year by remember { mutableStateOf("") }
-    var offsets by remember { mutableStateOf("1,0") }
     var error by remember { mutableStateOf("") }
     val d = day.toIntOrNull()
     val m = month.toIntOrNull()
@@ -869,9 +749,7 @@ fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int, Int?, String)
                     OutlinedTextField(day, { day = it.filter(Char::isDigit) }, Modifier.weight(1f), singleLine = true, label = { Text("روز") })
                     OutlinedTextField(month, { month = it.filter(Char::isDigit) }, Modifier.weight(1f), singleLine = true, label = { Text("ماه") })
                 }
-                OutlinedTextField(year, { year = it.filter(Char::isDigit).take(4) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("سال تولد (اختیاری)") })
-                OutlinedTextField(offsets, { offsets = it.filter { ch -> ch.isDigit() || ch == ',' }.take(30) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("یادآوری‌ها: 30,7,1,0 روز قبل") })
-                Text("برای ۲۹ فوریه در سال غیرکبیسه، اعلان به ۱ مارس منتقل می‌شود.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("مثال: 15 / 7", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -881,7 +759,7 @@ fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int, Int?, String)
                     name.isBlank() -> error = "نام را وارد کنید"
                     m == null || d == null -> error = "روز و ماه را وارد کنید"
                     !isValidBirthdayDate(m, d) -> error = "این تاریخ معتبر نیست"
-                    else -> add(name, m, d, year.toIntOrNull()?.takeIf { it in 1900..2200 }, offsets)
+                    else -> add(name, m, d)
                 }
             }) { Text("ذخیره") }
         },
@@ -893,13 +771,11 @@ fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int, Int?, String)
 fun EditBirthdayDialog(
     birthday: StoredBirthday,
     dismiss: () -> Unit,
-    save: (String, Int, Int, Int?, String) -> Unit
+    save: (String, Int, Int) -> Unit
 ) {
     var name by remember(birthday.id) { mutableStateOf(birthday.name) }
     var day by remember(birthday.id) { mutableStateOf(birthday.day.toString()) }
     var month by remember(birthday.id) { mutableStateOf(birthday.month.toString()) }
-    var year by remember(birthday.id) { mutableStateOf(birthday.year?.toString().orEmpty()) }
-    var offsets by remember(birthday.id) { mutableStateOf(birthday.reminderOffsets) }
     var error by remember(birthday.id) { mutableStateOf("") }
 
     val d = day.toIntOrNull()
@@ -933,8 +809,7 @@ fun EditBirthdayDialog(
                         label = { Text("ماه") }
                     )
                 }
-                OutlinedTextField(year, { year = it.filter(Char::isDigit).take(4) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("سال تولد (اختیاری)") })
-                OutlinedTextField(offsets, { offsets = it.filter { ch -> ch.isDigit() || ch == ',' }.take(30) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("یادآوری‌ها: 30,7,1,0 روز قبل") })
+                Text("مثال: 15 / 7", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -944,7 +819,7 @@ fun EditBirthdayDialog(
                     name.isBlank() -> error = "نام را وارد کنید"
                     m == null || d == null -> error = "روز و ماه را وارد کنید"
                     !isValidBirthdayDate(m, d) -> error = "این تاریخ معتبر نیست"
-                    else -> save(name, m, d, year.toIntOrNull()?.takeIf { it in 1900..2200 }, offsets)
+                    else -> save(name, m, d)
                 }
             }) { Text("ذخیره تغییرات") }
         },
@@ -954,7 +829,6 @@ fun EditBirthdayDialog(
 
 @Composable
 fun SettingsScreen(
-    context: Context,
     total: Int,
     done: Int,
     birthdays: Int,
@@ -979,8 +853,6 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("تولدهای ذخیره‌شده: " + birthdays)
-                Spacer(Modifier.height(12.dp))
-                PersonalizationSettings(context)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -1007,7 +879,9 @@ fun SettingsScreen(
 fun loadTasks(context: Context): List<TodoItem> {
     val prefs = context.getSharedPreferences("yadavar_data", 0)
     val raw = prefs.getString("tasks", null) ?: return emptyList()
+    val savedDate = prefs.getString("tasks_date", null)
     val today = currentTaskDate()
+    val shouldReset = savedDate == null || savedDate != today
 
     val list = raw.split("\n").mapNotNull { p ->
         val x = p.split("\t", limit = 17)
@@ -1026,7 +900,7 @@ fun loadTasks(context: Context): List<TodoItem> {
                 TodoItem(
                     id = id,
                     title = x[2],
-                    done = x[1] == "1",
+                    done = if (shouldReset) false else x[1] == "1",
                     reminderHour = hour?.takeIf { it in 0..23 },
                     reminderMinute = minute?.takeIf { it in 0..59 },
                     repeat = repeat,
@@ -1081,14 +955,14 @@ fun loadBirthdays(context: Context): List<StoredBirthday> {
         .getString("birthdays", null) ?: return emptyList()
 
     return raw.split("\n").mapNotNull { p ->
-        val x = p.split("\t", limit = 6)
-        if (x.size < 4) null
+        val x = p.split("\t", limit = 4)
+        if (x.size != 4) null
         else {
             val id = x[0].toIntOrNull()
             val m = x[2].toIntOrNull()
             val d = x[3].toIntOrNull()
             if (id == null || m == null || d == null || !isValidBirthdayDate(m, d)) null
-            else StoredBirthday(id, x[1], m, d, x.getOrNull(4)?.toIntOrNull()?.takeIf { it in 1900..2200 }, x.getOrNull(5).orEmpty().ifBlank { "1,0" })
+            else StoredBirthday(id, x[1], m, d)
         }
     }
 }
@@ -1098,7 +972,9 @@ private fun saveBirthdays(context: Context, list: List<StoredBirthday>) {
         .putString(
             "birthdays",
             list.joinToString("\n") {
-                it.id.toString() + "\t" + it.name.replace("\n", " ").replace("\t", " ") + "\t" + it.month + "\t" + it.day + "\t" + (it.year?.toString() ?: "") + "\t" + it.reminderOffsets
+                it.id.toString() + "\t" +
+                    it.name.replace("\n", " ").replace("\t", " ") +
+                    "\t" + it.month + "\t" + it.day
             }
         ).apply()
 }
@@ -1126,55 +1002,3 @@ private fun isValidBirthdayDate(month: Int, day: Int): Boolean {
     }
     return day in 1..maxDay
 }
-
-@Composable
-private fun PersonalizationSettings(context: Context) {
-    val prefs = context.getSharedPreferences("yadavar_data", 0)
-    var compact by remember { mutableStateOf(prefs.getBoolean("compact_mode", false)) }
-    var autoCarry by remember { mutableStateOf(prefs.getBoolean("smart_auto_carry", true)) }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("شخصی‌سازی و رفتار هوشمند", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("نمای فشرده", Modifier.weight(1f))
-                Switch(checked = compact, onCheckedChange = { compact = it; prefs.edit().putBoolean("compact_mode", it).apply() })
-            }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("پیشنهاد خودکار کارهای عقب‌افتاده", Modifier.weight(1f))
-                Switch(checked = autoCarry, onCheckedChange = { autoCarry = it; prefs.edit().putBoolean("smart_auto_carry", it).apply() })
-            }
-            var taskNotifications by remember { mutableStateOf(prefs.getBoolean("task_notifications_enabled", true)) }
-            var birthdayNotifications by remember { mutableStateOf(prefs.getBoolean("birthday_notifications_enabled", true)) }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("اعلان‌های کارها", Modifier.weight(1f))
-                Switch(checked = taskNotifications, onCheckedChange = {
-                    taskNotifications = it
-                    prefs.edit().putBoolean("task_notifications_enabled", it).apply()
-                    TaskNotificationScheduler.scheduleAll(context, loadTasks(context))
-                })
-            }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("اعلان‌های تولد", Modifier.weight(1f))
-                Switch(checked = birthdayNotifications, onCheckedChange = {
-                    birthdayNotifications = it
-                    prefs.edit().putBoolean("birthday_notifications_enabled", it).apply()
-                    BirthdayNotificationScheduler.scheduleAll(context, loadBirthdays(context))
-                })
-            }
-        }
-    }
-}
-
-
-private fun refreshWidget(context: Context) {
-    val manager = AppWidgetManager.getInstance(context)
-    val ids = manager.getAppWidgetIds(ComponentName(context, YadavarWidgetProvider::class.java))
-    if (ids.isNotEmpty()) YadavarWidgetProvider().onUpdate(context, manager, ids)
-}
-
-private fun hashPin(value: String): String =
-    MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
-
-private fun birthdayAge(year: Int, month: Int, day: Int): Int { val today = java.time.LocalDate.now(); val adjusted = if (month == 2 && day == 29 && !today.isLeapYear()) java.time.LocalDate.of(today.year, 3, 1) else java.time.LocalDate.of(today.year, month, day); return today.year - year - if (today.isBefore(adjusted)) 1 else 0 }
