@@ -63,4 +63,6 @@ jobs:
         run: rm -f app/yadavar-release.jks
 
 
-# automatic CI verification
+concurrency:
+  group: yadavar-build-${{ github.ref }}
+  cancel-in-progress: true
