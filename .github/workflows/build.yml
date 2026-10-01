@@ -59,3 +59,5 @@ jobs:
       - name: Remove release keystore
         if: always()
         run: rm -f app/yadavar-release.jks
+
+# CI verification trigger
