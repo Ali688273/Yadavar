@@ -55,7 +55,7 @@ object YadavarAds {
         if (initialized) return
         initialized = true
         Adivery.setLoggingEnabled(false)
-        Adivery.configure(context.applicationContext, ADIVERY_APP_ID)
+        Adivery.configure(context.applicationContext as android.app.Application, ADIVERY_APP_ID)
         TapsellPlus.initialize(context.applicationContext as android.app.Application, TAPSELL_KEY, object : TapsellPlusInitListener {
             override fun onInitializeSuccess(adNetworks: AdNetworks) {
                 tapsellReady = true
