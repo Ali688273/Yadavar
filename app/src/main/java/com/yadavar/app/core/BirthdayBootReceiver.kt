@@ -13,15 +13,13 @@ class BirthdayBootReceiver : BroadcastReceiver() {
             .getString("birthdays", null) ?: return
 
         val list = raw.split("\n").mapNotNull {
-            val p = it.split("\t", limit = 6)
-            if (p.size < 4) {
+            val p = it.split("\t", limit = 4)
+            if (p.size != 4) {
                 null
             } else {
                 val id = p[0].toIntOrNull()
                 val month = p[2].toIntOrNull()
                 val day = p[3].toIntOrNull()
-                val year = p.getOrNull(4)?.toIntOrNull()?.takeIf { it in 1900..2200 }
-                val offsets = p.getOrNull(5).orEmpty().ifBlank { "1,0" }
 
                 if (
                     id == null ||
@@ -31,7 +29,7 @@ class BirthdayBootReceiver : BroadcastReceiver() {
                 ) {
                     null
                 } else {
-                    StoredBirthday(id, p[1], month, day, year, offsets)
+                    StoredBirthday(id, p[1], month, day)
                 }
             }
         }
