@@ -203,8 +203,12 @@ private fun AdvancedTaskCard(task: TodoItem, toggle: () -> Unit, edit: () -> Uni
 @Composable
 private fun AdvancedTaskDialog(task: TodoItem, dismiss: () -> Unit, save: (TodoItem) -> Unit) {
     var title by remember(task.id) { mutableStateOf(task.title) }
-    var start by remember(task.id) { mutableStateOf(task.startDate) }
-    var due by remember(task.id) { mutableStateOf(task.dueDate) }
+    var start by remember(task.id) {
+        mutableStateOf(task.startDate.takeIf { it.isNotBlank() }?.let { parseDate(it)?.let(::jalaliDate) } ?: "")
+    }
+    var due by remember(task.id) {
+        mutableStateOf(task.dueDate.takeIf { it.isNotBlank() }?.let { parseDate(it)?.let(::jalaliDate) } ?: "")
+    }
     var note by remember(task.id) { mutableStateOf(task.note) }
     var tags by remember(task.id) { mutableStateOf(task.tags) }
     var subtasks by remember(task.id) { mutableStateOf(task.subtasks) }
@@ -220,8 +224,8 @@ private fun AdvancedTaskDialog(task: TodoItem, dismiss: () -> Unit, save: (TodoI
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("عنوان") })
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(start, { start = it }, Modifier.weight(1f), singleLine = true, label = { Text("شروع YYYY-MM-DD") })
-                    OutlinedTextField(due, { due = it }, Modifier.weight(1f), singleLine = true, label = { Text("سررسید YYYY-MM-DD") })
+                    OutlinedTextField(start, { start = it }, Modifier.weight(1f), singleLine = true, label = { Text("شروع شمسی") })
+                    OutlinedTextField(due, { due = it }, Modifier.weight(1f), singleLine = true, label = { Text("سررسید شمسی") })
                 }
                 OutlinedTextField(note, { note = it }, Modifier.fillMaxWidth(), minLines = 2, label = { Text("یادداشت") })
                 OutlinedTextField(tags, { tags = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("برچسب‌ها با ویرگول") })
@@ -243,10 +247,10 @@ private fun AdvancedTaskDialog(task: TodoItem, dismiss: () -> Unit, save: (TodoI
         },
         confirmButton = {
             Button(onClick = {
-                val normalizedStart = parseDate(start)?.toString() ?: ""
-                val normalizedDue = parseDate(due)?.toString() ?: normalizedStart
+                val normalizedStart = parseUserDate(start)?.toString() ?: ""
+                val normalizedDue = parseUserDate(due)?.toString() ?: normalizedStart
                 save(task.copy(title = title.trim(), startDate = normalizedStart, dueDate = normalizedDue, note = note.trim(), tags = tags.trim(), subtasks = subtasks.trim(), location = location.trim(), repeat = repeat, customEvery = customEvery.toIntOrNull()?.coerceAtLeast(1) ?: 1, customUnit = customUnit.trim().ifBlank { "day" }))
-            }, enabled = title.trim().isNotEmpty() && (start.isBlank() || parseDate(start) != null) && (due.isBlank() || parseDate(due) != null)) { Text("ذخیره") }
+            }, enabled = title.trim().isNotEmpty() && (start.isBlank() || parseUserDate(start) != null) && (due.isBlank() || parseUserDate(due) != null)) { Text("ذخیره") }
         },
         dismissButton = { TextButton(dismiss) { Text("انصراف") } }
     )
@@ -331,13 +335,30 @@ private fun IdeasPanel(context: Context) {
     }
 }
 
-private fun parseDate(value: String): LocalDate? = try { if (value.isBlank()) null else LocalDate.parse(value, ISO) } catch (_: DateTimeParseException) { null }
+private fun parseDate(value: String): LocalDate? = try {
+    if (value.isBlank()) null else LocalDate.parse(value.replace('/', '-'), ISO)
+} catch (_: DateTimeParseException) { null }
+
+private fun parseUserDate(value: String): LocalDate? {
+    val normalized = value.trim().replace('/', '-')
+    if (normalized.isBlank()) return null
+    val parts = normalized.split('-')
+    if (parts.size != 3) return null
+    val y = parts[0].toIntOrNull() ?: return null
+    val m = parts[1].toIntOrNull() ?: return null
+    val d = parts[2].toIntOrNull() ?: return null
+    return if (y >= 1300) {
+        if (!PersianCalendar.isValidJalaliDate(m, d)) null else PersianCalendar.jalaliToLocalDate(y, m, d)
+    } else {
+        runCatching { LocalDate.of(y, m, d) }.getOrNull()
+    }
+}
 private fun priorityRank(value: String): Int = when (value) { "high" -> 3; "normal" -> 2; else -> 1 }
 private fun jalaliDate(date: LocalDate): String = PersianCalendar.formatJalali(date)
 private fun jalaliDay(date: LocalDate): String = PersianCalendar.toJalali(date).day.toString()
 
 /* Persian date conversion is centralized in PersianCalendar. */
-private fun gregorianToJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
+private fun unusedGregorianToJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
     val gdm = intArrayOf(0,31,59,90,120,151,181,212,243,273,304,334)
     var gy2 = gy
     if (gm > 2) gy2++
@@ -419,7 +440,7 @@ private fun ToolsPanel(context: Context) {
                 Column(Modifier.padding(12.dp)) {
                     Text("شمارش معکوس", fontWeight = FontWeight.Bold)
                     OutlinedTextField(countdownTitle, { countdownTitle = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("عنوان") })
-                    OutlinedTextField(countdownDate, { countdownDate = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("تاریخ YYYY-MM-DD") })
+                    OutlinedTextField(countdownDate, { countdownDate = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("تاریخ شمسی (مثل 1404-07-10)") })
                     parseDate(countdownDate)?.let {
                         val days = ChronoUnit.DAYS.between(LocalDate.now(), it)
                         Text(if (days >= 0) "$countdownTitle: $days روز باقی‌مانده" else "$countdownTitle: " + (-days) + " روز گذشته")
