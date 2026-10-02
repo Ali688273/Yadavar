@@ -19,6 +19,7 @@ import java.time.temporal.ChronoUnit
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import com.yadavar.app.core.PersianCalendar
 
 private val ISO = DateTimeFormatter.ISO_LOCAL_DATE
 
@@ -66,11 +67,11 @@ fun ProfessionalScreen(
 
     Column(modifier.fillMaxSize().padding(12.dp)) {
         Text("مدیریت حرفه‌ای", fontSize = 25.sp, fontWeight = FontWeight.Bold)
-        Text("امروز: \${jalaliDate(today)} • عقب‌افتاده: \$overdue", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("امروز: ${jalaliDate(today)} • عقب‌افتاده: $overdue", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         ScrollableTabRow(selectedTabIndex = section, edgePadding = 0.dp) {
             listOf("امروز", "تقویم", "همه کارها", "عادت‌ها", "تمرکز", "آمار", "ابزارها").forEachIndexed { i, title ->
-                Tab(section == i, { section = i }, text = { Text(title) })
+                Tab(section == i, { section = i }, modifier = Modifier.widthIn(min = 72.dp), text = { Text(title, maxLines = 1, softWrap = false) })
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -122,7 +123,7 @@ private fun TodayPlan(tasks: List<TodoItem>, overdue: Int, onEdit: (TodoItem) ->
             Text("امروز من", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text("کارهای امروز + کارهای عقب‌افتاده را یکجا ببین.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            if (overdue > 0) Text("⚠ \$overdue کار عقب‌افتاده داری.", color = MaterialTheme.colorScheme.error)
+            if (overdue > 0) Text("⚠ $overdue کار عقب‌افتاده داری.", color = MaterialTheme.colorScheme.error)
             if (tasks.isEmpty()) Text("برای امروز کاری نداری؛ زمان را برای یک هدف مهم استفاده کن.")
             tasks.sortedWith(compareBy<TodoItem> { it.done }.thenByDescending { priorityRank(it.priority) }).forEach {
                 AdvancedTaskCard(it, { onToggle(it) }, { onEdit(it) }, {})
@@ -171,7 +172,7 @@ private fun CalendarPlanner(tasks: List<TodoItem>, selected: LocalDate, onSelect
             }
         }
     } else {
-        Text("تاریخ انتخاب‌شده: \${jalaliDate(selected)}", fontWeight = FontWeight.Bold)
+        Text("تاریخ انتخاب‌شده: ${jalaliDate(selected)}", fontWeight = FontWeight.Bold)
         val dayTasks = tasks.filter { parseDate(it.dueDate) == selected }
         if (dayTasks.isEmpty()) Text("کاری برای این روز ثبت نشده.")
         dayTasks.forEach { AdvancedTaskCard(it, {}, { onEdit(it) }, {}) }
@@ -186,7 +187,7 @@ private fun AdvancedTaskCard(task: TodoItem, toggle: () -> Unit, edit: () -> Uni
             Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
                 Text(task.title, fontWeight = if (task.priority == "high") FontWeight.Bold else FontWeight.Normal)
                 val meta = buildList {
-                    if (task.dueDate.isNotBlank()) add("سررسید " + task.dueDate)
+                    if (task.dueDate.isNotBlank()) parseDate(task.dueDate)?.let { add("سررسید " + jalaliDate(it)) }
                     if (task.tags.isNotBlank()) add("#" + task.tags.replace(",", " #"))
                     if (task.subtasks.isNotBlank()) add("زیرکار " + task.subtasks.split("|").size)
                 }.joinToString(" • ")
@@ -258,8 +259,8 @@ private fun HabitPanel(context: Context) {
     var newHabit by remember { mutableStateOf("") }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
-            Text("عادت‌ها و Streak", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text("ذخیره‌سازی کاملاً آفلاین است.")
+            Text("عادت‌ها", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("عادت یعنی کاری که می‌خواهی به‌صورت منظم تکرار کنی. هر روز که انجامش می‌دهی روی «امروز» بزن تا شمارش پیوستگی (Streak) افزایش پیدا کند. اطلاعات فقط روی گوشی ذخیره می‌شود.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             OutlinedTextField(newHabit, { newHabit = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("نام عادت") })
             Button(onClick = {
                 val n = newHabit.trim()
@@ -282,6 +283,10 @@ private fun HabitPanel(context: Context) {
                         habits = habits + (name to streak + 1)
                         saveHabits(prefs, habits)
                     }) { Text("امروز") }
+                    IconButton(onClick = {
+                        habits = habits - name
+                        saveHabits(prefs, habits)
+                    }) { Icon(Icons.Default.Delete, "حذف عادت") }
                 }
             }
         }
@@ -300,14 +305,15 @@ private fun FocusPanel() {
         if (seconds == 0) running = false
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-        Text("پومودورو", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("تمرکز زمان‌دار", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text("یک بازه ۲۵ دقیقه‌ای برای تمرکز روی یک کار، سپس استراحت کوتاه.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("%02d:%02d".format(seconds / 60, seconds % 60), fontSize = 48.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { running = !running }) { Text(if (running) "توقف" else "شروع") }
             OutlinedButton(onClick = { running = false; seconds = 25 * 60 }) { Text("بازنشانی") }
         }
         Spacer(Modifier.height(16.dp))
-        Text("ماتریس اهمیت/فوریت: مهم+فوری را اول انجام بده، مهم+غیرفوری را برنامه‌ریزی کن.")
+        Text("این ابزار برای تمرکز بدون حواس‌پرتی است: ۲۵ دقیقه روی یک کار کار کن، بعد استراحت کوتاه داشته باش. «پومودورو» نام روش زمان‌بندی است، نه یک قابلیت جداگانه.")
     }
 }
 
@@ -327,9 +333,10 @@ private fun IdeasPanel(context: Context) {
 
 private fun parseDate(value: String): LocalDate? = try { if (value.isBlank()) null else LocalDate.parse(value, ISO) } catch (_: DateTimeParseException) { null }
 private fun priorityRank(value: String): Int = when (value) { "high" -> 3; "normal" -> 2; else -> 1 }
-private fun jalaliDate(date: LocalDate): String { val (jy, jm, jd) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth); return "\$jy/\$jm/\$jd" }
-private fun jalaliDay(date: LocalDate): String { val (_, _, d) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth); return d.toString() }
+private fun jalaliDate(date: LocalDate): String = PersianCalendar.formatJalali(date)
+private fun jalaliDay(date: LocalDate): String = PersianCalendar.toJalali(date).day.toString()
 
+/* Persian date conversion is centralized in PersianCalendar. */
 private fun gregorianToJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
     val gdm = intArrayOf(0,31,59,90,120,151,181,212,243,273,304,334)
     var gy2 = gy
