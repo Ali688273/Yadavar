@@ -18,7 +18,7 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
         val day = intent.getIntExtra(EXTRA_DAY, 0)
         val type = intent.getIntExtra(EXTRA_TYPE, TYPE_TODAY)
 
-        if (id < 0 || !isValidDate(month, day)) return
+        if (id < 0 || !PersianCalendar.isValidJalaliDate(month, day)) return
 
         val manager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -64,16 +64,6 @@ class BirthdayNotificationReceiver : BroadcastReceiver() {
             month = month,
             day = day
         )
-    }
-
-    private fun isValidDate(month: Int, day: Int): Boolean {
-        if (month !in 1..12) return false
-        val maxDay = when (month) {
-            2 -> 29
-            4, 6, 9, 11 -> 30
-            else -> 31
-        }
-        return day in 1..maxDay
     }
 
     companion object {
