@@ -24,7 +24,7 @@ object BirthdayNotificationScheduler {
         month: Int,
         day: Int
     ) {
-        if (!isValidDate(month, day)) return
+        if (!PersianCalendar.isValidJalaliDate(month, day)) return
 
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val now = Calendar.getInstance()
@@ -32,18 +32,20 @@ object BirthdayNotificationScheduler {
         cancel(context, alarm, TOMORROW_BASE + id)
         cancel(context, alarm, TODAY_BASE + id)
 
-        val birthday = Calendar.getInstance().apply {
-            set(Calendar.YEAR, now.get(Calendar.YEAR))
-            set(Calendar.MONTH, month - 1)
-            set(Calendar.DAY_OF_MONTH, day)
-            set(Calendar.HOUR_OF_DAY, 9)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-
+        val jalaliNow = PersianCalendar.toJalali(
+            now.get(Calendar.YEAR),
+            now.get(Calendar.MONTH) + 1,
+            now.get(Calendar.DAY_OF_MONTH)
+        )
+        var targetJalaliYear = jalaliNow.year
+        var birthday = PersianCalendar.jalaliToGregorianCalendar(
+            targetJalaliYear, month, day, 9, 0
+        )
         if (birthday.timeInMillis <= System.currentTimeMillis()) {
-            birthday.add(Calendar.YEAR, 1)
+            targetJalaliYear++
+            birthday = PersianCalendar.jalaliToGregorianCalendar(
+                targetJalaliYear, month, day, 9, 0
+            )
         }
 
         val tomorrow = (birthday.clone() as Calendar).apply {
