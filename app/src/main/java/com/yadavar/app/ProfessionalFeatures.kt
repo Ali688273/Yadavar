@@ -357,7 +357,7 @@ private fun parseUserDate(value: String): LocalDate? {
 }
 private fun priorityRank(value: String): Int = when (value) { "high" -> 3; "normal" -> 2; else -> 1 }
 private fun jalaliDate(date: LocalDate): String = PersianCalendar.formatJalali(date)
-private fun jalaliDay(date: LocalDate): String = PersianCalendar.toJalali(date).day.toString()
+private fun jalaliDay(date: LocalDate): String = PersianCalendar.toJalali(date.year, date.monthValue, date.dayOfMonth).day.toString()
 
 /* Persian date conversion is centralized in PersianCalendar. */
 private fun unusedGregorianToJalali(gy: Int, gm: Int, gd: Int): Triple<Int, Int, Int> {
