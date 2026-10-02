@@ -29,6 +29,8 @@ import com.yadavar.app.core.StoredBirthday
 import com.yadavar.app.core.TaskNotificationScheduler
 import com.yadavar.app.core.TaskReminder
 import com.yadavar.app.core.TaskReminderCodec
+import com.yadavar.app.ads.YadavarBannerAd
+import com.yadavar.app.core.PersianCalendar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -378,7 +380,9 @@ fun TodoScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
+        YadavarBannerAd(Modifier.fillMaxWidth().height(50.dp))
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
@@ -717,7 +721,7 @@ fun BirthdayScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(b.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                Text("تاریخ: " + b.day + "/" + b.month, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("تاریخ: " + PersianCalendar.formatJalaliMonthDay(b.month, b.day), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(if (r.isToday) "امروز تولدشه 🎉" else r.daysUntil.toString() + " روز تا تولد")
                             }
                             IconButton({ edit(b) }) { Icon(Icons.Default.Edit, "ویرایش") }
@@ -749,7 +753,7 @@ fun AddBirthdayDialog(dismiss: () -> Unit, add: (String, Int, Int) -> Unit) {
                     OutlinedTextField(day, { day = it.filter(Char::isDigit) }, Modifier.weight(1f), singleLine = true, label = { Text("روز") })
                     OutlinedTextField(month, { month = it.filter(Char::isDigit) }, Modifier.weight(1f), singleLine = true, label = { Text("ماه") })
                 }
-                Text("مثال: 15 / 7", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("نمونه تاریخ شمسی: 15 / 7 (روز / ماه)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
