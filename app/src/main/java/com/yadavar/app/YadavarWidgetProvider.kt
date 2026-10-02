@@ -15,7 +15,7 @@ class YadavarWidgetProvider : AppWidgetProvider() {
             val total = if (tasks.isBlank()) 0 else tasks.lines().count { it.isNotBlank() }
             val done = if (tasks.isBlank()) 0 else tasks.lines().count { it.isNotBlank() && it.split("\t").getOrNull(1) == "1" }
             views.setTextViewText(R.id.widget_title, "یادآور")
-            views.setTextViewText(R.id.widget_count, "‎$done از $total کار انجام شده")
+            views.setTextViewText(R.id.widget_count, "$done از $total کار انجام شده")
             views.setOnClickPendingIntent(
                 R.id.widget_root,
                 android.app.PendingIntent.getActivity(
