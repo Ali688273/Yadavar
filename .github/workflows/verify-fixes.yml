@@ -1,0 +1,44 @@
+name: Yadavar Verify Fixes
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Restore release keystore
+        env:
+          YADAVAR_KEYSTORE_BASE64: ${{ secrets.YADAVAR_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$YADAVAR_KEYSTORE_BASE64" | base64 --decode > app/yadavar-release.jks
+          test -s app/yadavar-release.jks
+          chmod 600 app/yadavar-release.jks
+      - name: Build signed Release APK
+        env:
+          YADAVAR_KEYSTORE_PASSWORD: ${{ secrets.YADAVAR_KEYSTORE_PASSWORD }}
+          YADAVAR_KEY_ALIAS: ${{ secrets.YADAVAR_KEY_ALIAS }}
+          YADAVAR_KEY_PASSWORD: ${{ secrets.YADAVAR_KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon
+      - name: Verify signed APK
+        run: |
+          test -s app/build/outputs/apk/release/app-release.apk
+          $ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
+      - name: Remove release keystore
+        if: always()
+        run: rm -f app/yadavar-release.jks
