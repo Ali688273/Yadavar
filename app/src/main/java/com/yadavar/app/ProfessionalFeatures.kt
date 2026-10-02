@@ -331,7 +331,7 @@ private fun IdeasPanel(context: Context) {
         Text("لیست خرید: از دسته «خرید» برای نگهداری اقلام استفاده کن.")
         Text("مکان در هر کار ذخیره می‌شود و برای مرحله Geofence آماده است.")
         Button(onClick = {
-            val body = "یادآور\\nتعداد کارها: \${loadTasks(context).size}\\nتعداد تولدها: \${loadBirthdays(context).size}"
+            val body = "یادآور\\nتعداد کارها: ${loadTasks(context).size}\\nتعداد تولدها: ${loadBirthdays(context).size}"
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }, "اشتراک‌گذاری پشتیبان"))
         }) { Icon(Icons.Default.Share, null); Spacer(Modifier.width(6.dp)); Text("خروجی پشتیبان") }
     }
