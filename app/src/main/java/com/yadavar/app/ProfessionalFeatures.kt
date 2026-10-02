@@ -156,6 +156,8 @@ private fun CalendarPlanner(tasks: List<TodoItem>, selected: LocalDate, onSelect
         }
     }
     if (mode == "month") {
+        Text("تقویم شمسی — " + jalaliDate(selected).substring(0, 7), fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
         Column {
             dates.chunked(7).forEach { week ->
                 Row(Modifier.fillMaxWidth()) {
