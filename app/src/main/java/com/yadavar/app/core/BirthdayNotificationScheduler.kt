@@ -123,15 +123,7 @@ object BirthdayNotificationScheduler {
         cancel(context, alarm, TODAY_BASE + month * 100 + day)
     }
 
-    private fun isValidDate(month: Int, day: Int): Boolean {
-        if (month !in 1..12) return false
-        val maxDay = when (month) {
-            2 -> 29
-            4, 6, 9, 11 -> 30
-            else -> 31
-        }
-        return day in 1..maxDay
-    }
+
 }
 
 data class StoredBirthday(
