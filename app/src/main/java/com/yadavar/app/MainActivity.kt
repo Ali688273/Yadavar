@@ -997,12 +997,4 @@ private fun repeatLabel(value: String): String = when (value) {
 private fun currentTaskDate(): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
-private fun isValidBirthdayDate(month: Int, day: Int): Boolean {
-    if (month !in 1..12) return false
-    val maxDay = when (month) {
-        2 -> 29
-        4, 6, 9, 11 -> 30
-        else -> 31
-    }
-    return day in 1..maxDay
-}
+private fun isValidBirthdayDate(month: Int, day: Int): Boolean = PersianCalendar.isValidJalaliDate(month, day)
