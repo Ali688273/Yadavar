@@ -18,6 +18,7 @@ fun YadavarBannerAd(modifier: Modifier = Modifier) {
                     YadavarAds.loadTapsellBanner(context, container) {}
                 } else {
                     val banner = YadavarAds.createAdiveryBanner(context) {
+                        container.removeAllViews()
                         useTapsell = true
                     }
                     container.addView(banner)
