@@ -39,10 +39,7 @@ object PersianCalendar {
         if (month !in 1..12) return false
         val maxDay = if (month <= 6) 31 else 30
         if (day !in 1..maxDay) return false
-        if (month < 12 || day < 30) return true
-        val g = jalaliToGregorian(1400, month, day)
-        val back = toJalaliInternal(g.first, g.second, g.third)
-        return back.month == month && back.day == day
+        return true
     }
 
     fun jalaliToGregorianCalendar(year: Int, month: Int, day: Int, hour: Int, minute: Int): Calendar {
