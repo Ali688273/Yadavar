@@ -30,6 +30,7 @@ import com.yadavar.app.core.TaskNotificationScheduler
 import com.yadavar.app.core.TaskReminder
 import com.yadavar.app.core.TaskReminderCodec
 import com.yadavar.app.ads.YadavarBannerAd
+import com.yadavar.app.ads.YadavarAds
 import com.yadavar.app.core.PersianCalendar
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -170,6 +171,7 @@ fun YadavarApp(context: Context) {
                     if (i >= 0) {
                         tasks[i] = tasks[i].copy(done = !tasks[i].done)
                         saveT()
+                        if (tasks[i].done) (context as? ComponentActivity)?.let { YadavarAds.maybeShowInterstitial(it) }
                     }
                 },
                 edit = { editingTask = it },
