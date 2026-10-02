@@ -146,11 +146,18 @@ fun YadavarApp(context: Context) {
             })
         },
         bottomBar = {
-            NavigationBar {
+            Column {
+                YadavarBannerAd(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                )
+                NavigationBar {
                 NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Default.Checklist, "کارها") }, label = { Text("کارها") })
                 NavigationBarItem(selected = tab == 1, onClick = { tab = 1 }, icon = { Icon(Icons.Default.Cake, "تولدها") }, label = { Text("تولدها") })
                 NavigationBarItem(selected = tab == 2, onClick = { tab = 2 }, icon = { Icon(Icons.Default.AutoAwesome, "حرفه‌ای") }, label = { Text("حرفه‌ای") })
                 NavigationBarItem(selected = tab == 3, onClick = { tab = 3 }, icon = { Icon(Icons.Default.Settings, "تنظیمات") }, label = { Text("تنظیمات") })
+                }
             }
         },
         floatingActionButton = {
@@ -382,8 +389,6 @@ fun TodoScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        Spacer(Modifier.height(8.dp))
-        YadavarBannerAd(Modifier.fillMaxWidth().height(50.dp))
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = query,
