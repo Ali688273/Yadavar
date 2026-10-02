@@ -72,7 +72,7 @@ object PersianCalendar {
             ((epYear * 682 - 110) / 2816).toLong() +
             (epYear - 1) * 365L +
             (epBase / 2820) * 1029983L +
-            1948320L - 1
+            1948322L - 1
     }
 
     private fun dayNumberToGregorian(jdn: Long): Triple<Int, Int, Int> {
