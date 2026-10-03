@@ -53,10 +53,13 @@ jobs:
           $ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
 
       - name: Upload signed APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: yadavar-release-apk
           path: app/build/outputs/apk/release/app-release.apk
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Remove release keystore
         if: always()
@@ -65,4 +68,3 @@ jobs:
 concurrency:
   group: yadavar-build-${{ github.ref }}
   cancel-in-progress: true
-
