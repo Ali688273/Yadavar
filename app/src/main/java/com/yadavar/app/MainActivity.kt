@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
 
     private val adHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pausedAt = 0L
+    private var activityResumed = false
     private var firstUsageAdScheduled = false
 
     override fun onCreate(state: Bundle?) {
@@ -79,7 +80,7 @@ class MainActivity : ComponentActivity() {
         if (!firstUsageAdScheduled) {
             firstUsageAdScheduled = true
             adHandler.postDelayed({
-                if (!isFinishing && !isDestroyed) {
+                if (activityResumed && !isFinishing && !isDestroyed) {
                     YadavarAds.showInterstitial(this)
                 }
             }, 3 * 60 * 1000L)
@@ -87,12 +88,14 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        activityResumed = false
         pausedAt = android.os.SystemClock.elapsedRealtime()
         super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
+        activityResumed = true
         if (pausedAt > 0L) {
             val backgroundDuration = android.os.SystemClock.elapsedRealtime() - pausedAt
             YadavarAds.maybeShowAppOpen(this, backgroundDuration)
