@@ -6,24 +6,43 @@ import java.util.GregorianCalendar
 data class JalaliDate(val year: Int, val month: Int, val day: Int)
 
 object PersianCalendar {
-    fun toJalali(year: Int, month: Int, day: Int): JalaliDate =
-        toJalaliInternal(year, month, day)
+    fun toJalali(year: Int, month: Int, day: Int): JalaliDate {
+        val gy = year - 1600
+        val gm = month - 1
+        val gd = day - 1
 
-    private fun toJalaliInternal(gy: Int, gm: Int, gd: Int): JalaliDate {
-        val gdm = intArrayOf(0,31,59,90,120,151,181,212,243,273,304,334)
-        var gy2 = gy
-        if (gm > 2) gy2++
-        var days = 355666 + 365 * gy + (gy2 + 3) / 4 - (gy2 + 99) / 100 + (gy2 + 399) / 400 + gd + gdm[gm - 1]
-        var jy = -1595 + 33 * (days / 12053)
-        days %= 12053
-        jy += 4 * (days / 1461)
-        days %= 1461
-        if (days > 365) {
-            jy += (days - 1) / 365
-            days = (days - 1) % 365
+        val gDayNo = 365 * gy +
+            (gy + 3) / 4 -
+            (gy + 99) / 100 +
+            (gy + 399) / 400
+
+        val gMonthDays = intArrayOf(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+        var dayNo = gDayNo + gd
+        for (i in 0 until gm) dayNo += gMonthDays[i]
+        if (gm > 1 && ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0)) {
+            dayNo++
         }
-        val jm = if (days < 186) 1 + days / 31 else 7 + (days - 186) / 30
-        val jd = 1 + if (days < 186) days % 31 else (days - 186) % 30
+
+        var jDayNo = dayNo - 79
+        val jNp = jDayNo / 12053
+        jDayNo %= 12053
+
+        var jy = 979 + 33 * jNp + 4 * (jDayNo / 1461)
+        jDayNo %= 1461
+        if (jDayNo >= 366) {
+            jy += (jDayNo - 1) / 365
+            jDayNo = (jDayNo - 1) % 365
+        }
+
+        val jm: Int
+        val jd: Int
+        if (jDayNo < 186) {
+            jm = 1 + jDayNo / 31
+            jd = 1 + jDayNo % 31
+        } else {
+            jm = 7 + (jDayNo - 186) / 30
+            jd = 1 + (jDayNo - 186) % 30
+        }
         return JalaliDate(jy, jm, jd)
     }
 
@@ -38,8 +57,7 @@ object PersianCalendar {
     fun isValidJalaliDate(month: Int, day: Int): Boolean {
         if (month !in 1..12) return false
         val maxDay = if (month <= 6) 31 else 30
-        if (day !in 1..maxDay) return false
-        return true
+        return day in 1..maxDay
     }
 
     fun jalaliToGregorianCalendar(year: Int, month: Int, day: Int, hour: Int, minute: Int): Calendar {
@@ -52,45 +70,55 @@ object PersianCalendar {
 
     fun jalaliToLocalDate(year: Int, month: Int, day: Int): java.time.LocalDate {
         val g = jalaliToGregorianCalendar(year, month, day, 0, 0)
-        return java.time.LocalDate.of(g.get(Calendar.YEAR), g.get(Calendar.MONTH) + 1, g.get(Calendar.DAY_OF_MONTH))
+        return java.time.LocalDate.of(
+            g.get(Calendar.YEAR),
+            g.get(Calendar.MONTH) + 1,
+            g.get(Calendar.DAY_OF_MONTH)
+        )
     }
 
     private fun jalaliToGregorian(jy: Int, jm: Int, jd: Int): Triple<Int, Int, Int> {
-        val days = if (jm <= 6) (jm - 1) * 31 + (jd - 1)
-                   else 186 + (jm - 7) * 30 + (jd - 1)
-        val base = jalaliToDayNumber(jy, 1, 1) + days
-        return dayNumberToGregorian(base)
-    }
+        var jyWork = jy - 979
+        val jDayNo = 365 * jyWork +
+            (jyWork / 33) * 8 +
+            ((jyWork % 33) + 3) / 4
 
-    private fun jalaliToDayNumber(jy: Int, jm: Int, jd: Int): Long {
-        val epBase = jy - (if (jy >= 0) 474 else 473)
-        val epYear = 474 + mod(epBase, 2820)
-        return (jd + if (jm <= 7) (jm - 1) * 31 else (jm - 1) * 30 + 6) +
-            ((epYear * 682 - 110) / 2816).toLong() +
-            (epYear - 1) * 365L +
-            (epBase / 2820) * 1029983L +
-            1948322L - 1
-    }
+        var dayNo = jDayNo
+        dayNo += if (jm <= 6) {
+            (jm - 1) * 31 + (jd - 1)
+        } else {
+            186 + (jm - 7) * 30 + (jd - 1)
+        }
+        dayNo += 79
 
-    private fun dayNumberToGregorian(jdn: Long): Triple<Int, Int, Int> {
-        val j = jdn + 32044
-        val g = j / 146097
-        var dg = j % 146097
-        val c = (dg / 36524 + 1) * 3 / 4
-        dg -= c * 36524
-        val b = dg / 1461
-        val db = dg % 1461
-        val a = (db / 365).coerceAtMost(3)
-        val year = 400 * g + 100 * c + 4 * b + a
-        val doy = db - 365 * a
-        val mp = (5 * doy + 2) / 153
-        val day = doy - (153 * mp + 2) / 5 + 1
-        val month = mp + 3 - 12 * (mp / 10)
-        return Triple((year + mp / 10).toInt(), month.toInt(), day.toInt())
-    }
+        var gy = 1600 + 400 * (dayNo / 146097)
+        dayNo %= 146097
 
-    private fun mod(a: Int, b: Int): Int {
-        val r = a % b
-        return if (r < 0) r + b else r
+        var leap = true
+        if (dayNo >= 36525) {
+            dayNo--
+            gy += 100 * (dayNo / 36524)
+            dayNo %= 36524
+            if (dayNo >= 365) dayNo++
+            else leap = false
+        }
+
+        gy += 4 * (dayNo / 1461)
+        dayNo %= 1461
+        if (dayNo >= 366) {
+            leap = false
+            dayNo--
+            gy += dayNo / 365
+            dayNo %= 365
+        }
+
+        val monthDays = intArrayOf(31, if (leap) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+        var gm = 0
+        var remaining = dayNo
+        while (gm < 12 && remaining >= monthDays[gm]) {
+            remaining -= monthDays[gm]
+            gm++
+        }
+        return Triple(gy, gm + 1, remaining + 1)
     }
 }
