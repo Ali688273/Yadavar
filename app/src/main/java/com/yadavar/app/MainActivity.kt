@@ -62,13 +62,46 @@ class MainActivity : ComponentActivity() {
     private val permission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
+    private val adHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pausedAt = 0L
+    private var firstUsageAdScheduled = false
+
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        YadavarAds.initialize(this)
+
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
 
         setContent { YadavarApp(this) }
+
+        if (!firstUsageAdScheduled) {
+            firstUsageAdScheduled = true
+            adHandler.postDelayed({
+                if (!isFinishing && !isDestroyed) {
+                    YadavarAds.showInterstitial(this)
+                }
+            }, 3 * 60 * 1000L)
+        }
+    }
+
+    override fun onPause() {
+        pausedAt = android.os.SystemClock.elapsedRealtime()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (pausedAt > 0L) {
+            val backgroundDuration = android.os.SystemClock.elapsedRealtime() - pausedAt
+            YadavarAds.maybeShowAppOpen(this, backgroundDuration)
+        }
+    }
+
+    override fun onDestroy() {
+        adHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 }
 
