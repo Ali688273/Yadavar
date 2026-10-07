@@ -40,7 +40,6 @@ object BackupManager {
                 .put("note", task.note)
                 .put("tags", task.tags)
                 .put("subtasks", task.subtasks)
-                .put("location", task.location)
                 .put("customEvery", task.customEvery)
                 .put("customUnit", task.customUnit)
                 .put("reminders", JSONArray(TaskReminderCodec.encode(if (task.reminders.isNotEmpty()) task.reminders else if (task.hasReminder) listOf(TaskReminder(task.reminderHour!!, task.reminderMinute!!)) else emptyList()))))
@@ -89,7 +88,6 @@ object BackupManager {
                 (it.reminderMinute?.toString() ?: "") + "\t" +
                 it.repeat + "\t" + clean(it.category) + "\t" + it.priority + "\t" +
                 it.startDate + "\t" + it.dueDate + "\t" + clean(it.note) + "\t" +
-                clean(it.tags) + "\t" + clean(it.subtasks) + "\t" + clean(it.location) + "\t" +
                 it.customEvery.coerceAtLeast(1) + "\t" + clean(it.customUnit) + "\t" +
                 TaskReminderCodec.encode(if (it.reminders.isNotEmpty()) it.reminders else if (it.hasReminder) listOf(TaskReminder(it.reminderHour!!, it.reminderMinute!!)) else emptyList())
         })
@@ -143,7 +141,6 @@ object BackupManager {
                 note = o.optString("note"),
                 tags = o.optString("tags"),
                 subtasks = o.optString("subtasks"),
-                location = o.optString("location"),
                 customEvery = o.optInt("customEvery", 1).coerceAtLeast(1),
                 customUnit = o.optString("customUnit", "day").ifBlank { "day" },
                 reminders = decodeBackupReminders(o.optJSONArray("reminders")).ifEmpty {
@@ -209,6 +206,9 @@ object BackupManager {
             val x = row.split("\t", limit = 17)
             if (x.size < 3) return@mapNotNull null
             val id = x[0].toIntOrNull() ?: return@mapNotNull null
+            val customEveryIndex = if (x.size >= 17) 14 else 13
+            val customUnitIndex = if (x.size >= 17) 15 else 14
+            val remindersIndex = if (x.size >= 17) 16 else 15
             val hour = x.getOrNull(3)?.toIntOrNull()?.takeIf { it in 0..23 }
             val minute = x.getOrNull(4)?.toIntOrNull()?.takeIf { it in 0..59 }
             TodoItem(
@@ -225,10 +225,9 @@ object BackupManager {
                 note = x.getOrNull(10).orEmpty(),
                 tags = x.getOrNull(11).orEmpty(),
                 subtasks = x.getOrNull(12).orEmpty(),
-                location = x.getOrNull(13).orEmpty(),
-                customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" },
-                reminders = TaskReminderCodec.decode(x.getOrNull(16)).ifEmpty {
+                customEvery = x.getOrNull(customEveryIndex)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                customUnit = x.getOrNull(customUnitIndex).orEmpty().ifBlank { "day" },
+                reminders = TaskReminderCodec.decode(x.getOrNull(remindersIndex)).ifEmpty {
                     if (hour != null && minute != null) listOf(TaskReminder(hour, minute)) else emptyList()
                 }
             )
