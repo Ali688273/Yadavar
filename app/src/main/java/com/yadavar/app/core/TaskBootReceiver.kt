@@ -33,7 +33,7 @@ class TaskBootReceiver : BroadcastReceiver() {
                     x.getOrNull(13).orEmpty(),
                     x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
                     x.getOrNull(15).orEmpty().ifBlank { "day" },
-                    reminders = TaskReminderCodec.decode(x.getOrNull(16)).ifEmpty {
+                    reminders = TaskReminderCodec.decode(x.getOrNull(remindersIndex)).ifEmpty {
                         val h = hour?.takeIf { it in 0..23 }
                         val m = minute?.takeIf { it in 0..59 }
                         if (h != null && m != null) listOf(TaskReminder(h, m)) else emptyList()
