@@ -214,7 +214,6 @@ private fun AdvancedTaskDialog(task: TodoItem, dismiss: () -> Unit, save: (TodoI
     var note by remember(task.id) { mutableStateOf(task.note) }
     var tags by remember(task.id) { mutableStateOf(task.tags) }
     var subtasks by remember(task.id) { mutableStateOf(task.subtasks) }
-    var location by remember(task.id) { mutableStateOf(task.location) }
     var repeat by remember(task.id) { mutableStateOf(task.repeat) }
     var customEvery by remember(task.id) { mutableStateOf(task.customEvery.toString()) }
     var customUnit by remember(task.id) { mutableStateOf(task.customUnit) }
@@ -232,7 +231,6 @@ private fun AdvancedTaskDialog(task: TodoItem, dismiss: () -> Unit, save: (TodoI
                 OutlinedTextField(note, { note = it }, Modifier.fillMaxWidth(), minLines = 2, label = { Text("یادداشت") })
                 OutlinedTextField(tags, { tags = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("برچسب‌ها با ویرگول") })
                 OutlinedTextField(subtasks, { subtasks = it }, Modifier.fillMaxWidth(), minLines = 2, label = { Text("زیرکارها با | جدا شوند") })
-                OutlinedTextField(location, { location = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("مکان یادآوری") })
                 Text("تکرار سفارشی", fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("none" to "یک‌بار", "daily" to "روزانه", "weekly" to "هفتگی", "monthly" to "ماهانه", "yearly" to "سالانه", "custom" to "سفارشی").forEach { (v,l) ->
@@ -251,7 +249,7 @@ private fun AdvancedTaskDialog(task: TodoItem, dismiss: () -> Unit, save: (TodoI
             Button(onClick = {
                 val normalizedStart = parseUserDate(start)?.toString() ?: ""
                 val normalizedDue = parseUserDate(due)?.toString() ?: normalizedStart
-                save(task.copy(title = title.trim(), startDate = normalizedStart, dueDate = normalizedDue, note = note.trim(), tags = tags.trim(), subtasks = subtasks.trim(), location = location.trim(), repeat = repeat, customEvery = customEvery.toIntOrNull()?.coerceAtLeast(1) ?: 1, customUnit = customUnit.trim().ifBlank { "day" }))
+                save(task.copy(title = title.trim(), startDate = normalizedStart, dueDate = normalizedDue, note = note.trim(), tags = tags.trim(), subtasks = subtasks.trim(), repeat = repeat, customEvery = customEvery.toIntOrNull()?.coerceAtLeast(1) ?: 1, customUnit = customUnit.trim().ifBlank { "day" }))
             }, enabled = title.trim().isNotEmpty() && (start.isBlank() || parseUserDate(start) != null) && (due.isBlank() || parseUserDate(due) != null)) { Text("ذخیره") }
         },
         dismissButton = { TextButton(dismiss) { Text("انصراف") } }
@@ -329,7 +327,6 @@ private fun IdeasPanel(context: Context) {
         Text("امکانات تکمیلی", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text("تقویم شمسی و حالت آفلاین در هسته برنامه فعال است.")
         Text("لیست خرید: از دسته «خرید» برای نگهداری اقلام استفاده کن.")
-        Text("مکان در هر کار ذخیره می‌شود و برای مرحله Geofence آماده است.")
         Button(onClick = {
             val body = "یادآور\\nتعداد کارها: ${loadTasks(context).size}\\nتعداد تولدها: ${loadBirthdays(context).size}"
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, body) }, "اشتراک‌گذاری پشتیبان"))
