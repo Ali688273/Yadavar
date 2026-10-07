@@ -114,6 +114,9 @@ class TaskNotificationReceiver : BroadcastReceiver() {
                 val hour = x.getOrNull(3)?.toIntOrNull()
                 val minute = x.getOrNull(4)?.toIntOrNull()
                 val taskRepeat = x.getOrNull(5) ?: "none"
+                val customEveryIndex = if (x.size >= 17) 14 else 13
+                val customUnitIndex = if (x.size >= 17) 15 else 14
+                val remindersIndex = if (x.size >= 17) 16 else 15
 
                 com.yadavar.app.TodoItem(
                     id = taskId,
@@ -131,10 +134,9 @@ class TaskNotificationReceiver : BroadcastReceiver() {
                     note = x.getOrNull(10).orEmpty(),
                     tags = x.getOrNull(11).orEmpty(),
                     subtasks = x.getOrNull(12).orEmpty(),
-                    location = x.getOrNull(13).orEmpty(),
-                    customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                    customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" },
-                    reminders = TaskReminderCodec.decode(x.getOrNull(16)).ifEmpty {
+                    customEvery = x.getOrNull(customEveryIndex)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                    customUnit = x.getOrNull(customUnitIndex).orEmpty().ifBlank { "day" },
+                    reminders = TaskReminderCodec.decode(x.getOrNull(remindersIndex)).ifEmpty {
                         val h = hour?.takeIf { it in 0..23 }
                         val m = minute?.takeIf { it in 0..59 }
                         if (h != null && m != null) listOf(TaskReminder(h, m)) else emptyList()
