@@ -1,6 +1,5 @@
 package com.yadavar.app
 
-import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -50,7 +49,6 @@ data class TodoItem(
     val note: String = "",
     val tags: String = "",
     val subtasks: String = "",
-    val location: String = "",
     val customEvery: Int = 1,
     val customUnit: String = "day",
     val reminders: List<TaskReminder> = emptyList()
@@ -944,6 +942,9 @@ fun loadTasks(context: Context): List<TodoItem> {
                 } ?: "none"
                 val category = x.getOrNull(6)?.ifBlank { "عمومی" } ?: "عمومی"
                 val priority = x.getOrNull(7)?.takeIf { it == "low" || it == "normal" || it == "high" } ?: "normal"
+                val customEveryIndex = if (x.size >= 17) 14 else 13
+                val customUnitIndex = if (x.size >= 17) 15 else 14
+                val remindersIndex = if (x.size >= 17) 16 else 15
                 TodoItem(
                     id = id,
                     title = x[2],
@@ -958,10 +959,9 @@ fun loadTasks(context: Context): List<TodoItem> {
                     note = x.getOrNull(10).orEmpty(),
                     tags = x.getOrNull(11).orEmpty(),
                     subtasks = x.getOrNull(12).orEmpty(),
-                    location = x.getOrNull(13).orEmpty(),
-                    customEvery = x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                    customUnit = x.getOrNull(15).orEmpty().ifBlank { "day" },
-                    reminders = TaskReminderCodec.decode(x.getOrNull(16)).ifEmpty {
+                    customEvery = x.getOrNull(customEveryIndex)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                    customUnit = x.getOrNull(customUnitIndex).orEmpty().ifBlank { "day" },
+                    reminders = TaskReminderCodec.decode(x.getOrNull(remindersIndex)).ifEmpty {
                         val h = hour?.takeIf { it in 0..23 }
                         val m = minute?.takeIf { it in 0..59 }
                         if (h != null && m != null) listOf(TaskReminder(h, m)) else emptyList()
@@ -987,8 +987,7 @@ private fun saveTasks(context: Context, list: List<TodoItem>) {
                     (it.reminderMinute?.toString() ?: "") + "\t" +
                     it.repeat + "\t" + it.category.replace("\n", " ").replace("\t", " ") +
                     "\t" + it.priority + "\t" + it.startDate + "\t" + it.dueDate + "\t" +
-                    it.note.replace("\n", " ").replace("\t", " ") + "\t" + it.tags.replace("\n", " ").replace("\t", " ") + "\t" +
-                    it.subtasks.replace("\n", " ").replace("\t", " ") + "\t" + it.location.replace("\n", " ").replace("\t", " ") + "\t" +
+                    it.note.replace("\n", " ").replace("\t", " ") + "\t" + it.tags.replace("\n", " ").replace("\t", " ") + "\t" +                     it.subtasks.replace("\n", " ").replace("\t", " ") + "\t" +
                     it.customEvery + "\t" + it.customUnit + "\t" +
                     TaskReminderCodec.encode(if (it.reminders.isNotEmpty()) it.reminders else if (it.hasReminder) listOf(TaskReminder(it.reminderHour!!, it.reminderMinute!!)) else emptyList())
             }
