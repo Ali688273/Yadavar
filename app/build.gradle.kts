@@ -53,7 +53,6 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("ir.tapsell.plus:tapsell-plus-sdk-android:2.3.3")
     implementation("com.adivery:sdk:4.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
