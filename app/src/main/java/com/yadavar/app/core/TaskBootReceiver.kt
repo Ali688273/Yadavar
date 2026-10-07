@@ -18,6 +18,9 @@ class TaskBootReceiver : BroadcastReceiver() {
                 val hour = x.getOrNull(3)?.toIntOrNull()
                 val minute = x.getOrNull(4)?.toIntOrNull()
                 val repeat = x.getOrNull(5) ?: "none"
+                val customEveryIndex = if (x.size >= 17) 14 else 13
+                val customUnitIndex = if (x.size >= 17) 15 else 14
+                val remindersIndex = if (x.size >= 17) 16 else 15
                 if (id == null) null else com.yadavar.app.TodoItem(
                     id, x[2], x[1] == "1",
                     hour?.takeIf { it in 0..23 },
@@ -30,9 +33,8 @@ class TaskBootReceiver : BroadcastReceiver() {
                     x.getOrNull(10).orEmpty(),
                     x.getOrNull(11).orEmpty(),
                     x.getOrNull(12).orEmpty(),
-                    x.getOrNull(13).orEmpty(),
-                    x.getOrNull(14)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                    x.getOrNull(15).orEmpty().ifBlank { "day" },
+                    x.getOrNull(customEveryIndex)?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                    x.getOrNull(customUnitIndex).orEmpty().ifBlank { "day" },
                     reminders = TaskReminderCodec.decode(x.getOrNull(remindersIndex)).ifEmpty {
                         val h = hour?.takeIf { it in 0..23 }
                         val m = minute?.takeIf { it in 0..59 }
